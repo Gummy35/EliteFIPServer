@@ -10,7 +10,7 @@ The integration with Matric allows Matric to reflect the current game state in t
 screen display rather than a traditional keyboard increases immersion and lowers the requirement to remember
 all the many key bindings you might need.
 
-Current build is available [here](https://github.com/EarthstormSoftware/EliteFIPServer/releases/)
+Current build is available [here](https://github.com/GeneralMADmanOne/EliteFIPServer/releases/)
 
 If you are upgrading from a previous section, please double check the Runtime Pre-requisities and any upgrade notes as they might change from version to version.
 
@@ -36,7 +36,7 @@ Aside from various libraries which VS will highlight if missing, and which are a
 Elite FIP Server requires the following:
 
 - [EliteAPI](https://github.com/Somfic/EliteAPI)
-- [EliteFIPProtocol](https://github.com/EarthstormSoftware/EliteFIPProtocol)
+- [EliteFIPProtocol (my fork is needed for that)](https://github.com/GeneralMADmanOne/EliteFIPProtocol)
 - [MatricIntegration.dll](https://matricapp.com)
 
 Older versions of Elite FIP server, used the EliteJournalReader project to provide in-game events.
@@ -45,10 +45,10 @@ Older versions of Elite FIP server, used the EliteJournalReader project to provi
 
 ## Usage
 Use at own risk :)
-1. Either use the provided installer package and install to a suitable location, or build from source
+1. Build from source
 2. Start Matric and connect a client.
 3. Enable API Integration in Matric (Settings > API Integration > Enable 3rd party integration). Please note that PIN authorisation is no longer supported.
-4. Run the EliteFIPServer.exe file - a shortcut will be placed on the desktop if you used the installer
+4. Run the EliteFIPServer.exe file
 5. Matric Integration is not enabled by default. You can start this manually from the UI, and configure it to start automatically in the Settings tab. 
 6. The Panel Server (which pubishes game data via a built-in  Web Server) can also be started manually, and configured to start automatically in the Settings tab.
 
@@ -209,11 +209,25 @@ When using a 2-way Multi-position switch for Landing gear, set the Name field fo
 
 Elite Data Point | Base Matric Button Name | Slider | Text | Notes
 -------------- | ----------- | ----------- | -------------- | -----------
+Fuel (Main) | FuelMain | x | x | Slider is a percentage, text is actual value from game.
 Fuel (Reservoir) | FuelReservoir | x | x | Slider is a percentage, text is actual value from game. 
 Target data (Ship type, Faction, Rank etc)   | Target |  | x | Custom panel showing target information in one Matric button
 Target labels  | TargetLabel |  | x | Fixed label for Target panel
 Status data (Legal state, Cargo weight, Fuel etc)   | Status  |  | x | Custom panel showing status information in one Matric button
 Status labels  | StatusLabel|  | x | Fixed label for Status panel
+Target data (Ship type, Shield/Hull/SubSys data, Rank, Faction, Legal state, Bounty etc)   | Target  |  | x | Custom panel showing status information in one Matric button
+Target labels  | TargetLabel|  | x | Fixed label for Status panel
+Infos  (Closest Body, Legal State, Destination Name, Main Fuel, Fuel Reservoir, Cargo, Balance)  | Info  |  | x | Custom panel showing information in one Matric button
+Info labels  | InfoLabel|  | x | Fixed label for Info panel
+Landing data (Station Name, System Name, Body Name, Distance Main Star, Economy, Landing Pad, Deny Reason, Cargo, Balance) depending on Docking Event  | Landing  |  | x | Custom panel showing status information in one Matric button
+Landing labels  | LandingLabel|  | x | Fixed label for Status panel
+Landing Pad Number  | Landingpad|  | x | Fixed label for Landing Pad Number
+Target Subsys Name  | TargetSubsysName|  | x | Fixed label for Target Subsystem Name
+Target Shield Value | TargetShieldValue | x | x | Slider is a percentage, text is actual value from game. 
+Target Hull Value | TargetHullValue | x | x | Slider is a percentage, text is actual value from game. 
+Target Subsys Value | TargetSubsysValue | x | x | Slider is a percentage, text is actual value from game. 
+Game Infos (Fid, Commander, has Horizons/Odyssey, GameMode, Language, GameVersion, Build, Group) | GameInfo  |  | x | Custom panel showing Game information in one Matric button
+
 
 
 Text displays require a text button, of sufficient width and height to display the full text. If the text button
@@ -224,49 +238,19 @@ Text size is per standard Matric setting, but for text which combines multiple E
 ---
 # Change History
 
-### v3.2.0
-- Significant internal refactoring
-- Refreshed user interface
-- Improved Route and Location Handling (including new examples and visualisation in Panel Server)
-- Bug fixes and tweaks
+### v3.3.0
+- My initial version (based on 3.2.0 from EarthstormSoftware)
+- Added new Status & Info Panels
+- Fixed Fuel Sliders for Main and Reservoir Fuel (not perfect but works most of the time)
+- Added Sliders/Text Fields for Target Shiels/Hull/Subsystem
+- Added Landing Pad Number Test field and Landing Info Panel
 
 
-### v3.1.0
-- Added installer and application icons
-- Added first pass of Navigation Route and Location data to Panel Server
-- Changed data source from EliteJournalReader to EliteAPI
-- Bug fixes and various optimisations and quality of life improvements (inc. fixing InSrv state)
-
-### v3.0.0
-- Added Panel Server 
-
-### v2.1.0
-- Added Odyssey status fields 
-- Added Slider capability and first 'gauge' 
-
-### v2.0.0
-- Refactored code to simplify adding new features
-- Updated .NET to 6.0 (current Long Term Support version)
-- Updated minimum supported Matric level to v2 (required for other changes)
-- Removed PIN authentication for Matric API
-- Enabled updates to all connected Matric clients
-- Renamed button identifiers for consistency (breaking change)
-- Added new button types (Warning and Switch)
-- Added additional Status indictors
-
-
-
-### 1.1.0          
-- Added Status text and labels
-- Added Flight Assist, SuperCruise and FSD Jump button support
-- Added indicator support for various status flags
-
-### 1.0.0
-- Initial Version
-
+find older version history [here](https://github.com/EarthstormSoftware/EliteFIPServer)
 
 ---
 # Thanks to...
+- EarthstormSoftware for providing this great software I just enhanced a bit
 - Somfic and all the contributers to EliteAPI
 - AnarchyZG - the developer of Matric, both for the software and the support
 - The developers and contributors to EliteJournalReader

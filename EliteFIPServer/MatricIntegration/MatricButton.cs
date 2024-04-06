@@ -49,6 +49,7 @@ namespace EliteFIPServer {
             SliderPosition = 0;
             if (IsText) {
                 OffText = "";
+                OnText = "";
             }
         }
 
@@ -69,7 +70,8 @@ namespace EliteFIPServer {
             }
 
             if (IsText) {
-                matric.SetButtonProperties(ClientId, buttonName: MatricConstants.TXT + ButtonName, text: OffText);
+                //matric.SetButtonProperties(ClientId, buttonName: MatricConstants.TXT + ButtonName, text: OffText);
+                matric.SetButtonProperties(ClientId, buttonName: MatricConstants.TXT + ButtonName, text: GameState == true ? OnText : OffText);
             }
 
         }
@@ -79,6 +81,7 @@ namespace EliteFIPServer {
             if (IsIndicator) { buttons.Add(new SetButtonsVisualStateArgs(null, GameState ? "on" : "off", MatricConstants.IND + ButtonName)); }
             if (IsWarning) { buttons.Add(new SetButtonsVisualStateArgs(null, GameState ? "on" : "off", MatricConstants.WRN + ButtonName)); }
             if (IsSwitch) { buttons.Add(new SetButtonsVisualStateArgs(null, GameState ? "on" : "off", MatricConstants.SWT + ButtonName)); }
+            if (IsText) { buttons.Add(new SetButtonsVisualStateArgs(null, GameState ? "on" : "off", MatricConstants.TXT + ButtonName)); }
             return buttons;
         }
 

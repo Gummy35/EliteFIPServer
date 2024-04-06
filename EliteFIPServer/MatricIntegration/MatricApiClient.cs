@@ -3,7 +3,6 @@ using EliteFIPServer.Logging;
 using Matric.Integration;
 using Newtonsoft.Json;
 using System.IO;
-using System.Runtime.CompilerServices;
 
 namespace EliteFIPServer {
     public class MatricApiClient {
@@ -17,10 +16,23 @@ namespace EliteFIPServer {
         private string CLIENT_ID;
         private Matric.Integration.Matric matric;
         
+        private static DateTime lastEventUpdate = DateTime.UtcNow;
+
 
         // Matric Flash Worker
         private CancellationTokenSource MatricFlashWorkerCTS;
         private Task MatricFlashWorkerTask;
+
+        // Data variables
+        private double fuelCapacity = 0;
+        private double fuelReserve = 0;
+        private double fuelCurrent = 0;
+        private double fuelReserveMax = 0;
+        private string commander = "";
+        private string currentShipId = "";
+
+        private bool resetMaxFuel = false;
+        private bool resetMaxReservoirFuel = false;
 
         public MatricApiClient() {
             MatricButtonList = CreateButtonList();
@@ -40,7 +52,7 @@ namespace EliteFIPServer {
                 new MatricButton(MatricConstants.SHIELDS, "Shields", isButton: false, isSwitch: false),
                 new MatricButton(MatricConstants.SUPERCRUISE, "Supercruise", offText: "Supercruise", onText: "Supercruise"),
                 new MatricButton(MatricConstants.FLIGHTASSIST, "Flight Assist", offText: "Flight Assist", onText: "Flight Assist"),
-                new MatricButton(MatricConstants.HARDPOINTS, "Hardpoints", offText: "Hardpoints", onText: "Hardpoints"),
+                new MatricButton(MatricConstants.HARDPOINTS, "Hardpoints", offText: "Retracted", onText: "Deployed", updateButtonText: true),
                 new MatricButton(MatricConstants.INWING, "Wing", isButton: false, isSwitch: false),
                 new MatricButton(MatricConstants.LIGHTS, "Lights", offText: "Lights", onText: "Lights"),
                 new MatricButton(MatricConstants.CARGOSCOOP, "Cargo Scoop", offText: "Cargo Scoop", onText: "Cargo Scoop"),
@@ -78,14 +90,46 @@ namespace EliteFIPServer {
                 new MatricButton(MatricConstants.VERYCOLD, "Very Cold", isButton: false, isSwitch: false),
                 new MatricButton(MatricConstants.VERYHOT, "Very Hot", isButton: false, isSwitch: false),
 
-                new MatricButton(MatricConstants.FUELMAIN, "Main Fuel", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: false, isText: true),
+                new MatricButton(MatricConstants.FUELMAIN, "Main Fuel", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),
                 new MatricButton(MatricConstants.FUELRESERVOIR, "Fuel Reservoir", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),
+
+                new MatricButton(MatricConstants.FUELMAIN2, "Main Fuel 2", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),
+                new MatricButton(MatricConstants.FUELRESERVOIR2, "Fuel Reservoir 2", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),
 
                 new MatricButton(MatricConstants.STATUS, "Status", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
                 new MatricButton(MatricConstants.STATUS_LABEL, "Ship Status:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.STATUS2, "Status", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.STATUS_LABEL2, "Ship Status:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.STATUS3, "Status", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.STATUS_LABEL3, "Ship Status:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
 
                 new MatricButton(MatricConstants.TARGET, "Target", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
-                new MatricButton(MatricConstants.TARGET_LABEL, "Target Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true)
+                new MatricButton(MatricConstants.TARGET_LABEL, "Target Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.TARGET2, "Target", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.TARGET_LABEL2, "Target Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.TARGET3, "Target", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.TARGET_LABEL3, "Target Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+
+                new MatricButton(MatricConstants.LANDING, "Landing", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.LANDING_LABEL, "Landing Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.LANDING2, "Landing 2", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.LANDING_LABEL2, "Landing Info 2:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+
+                new MatricButton(MatricConstants.GAMEINFO, "GameInfo", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+
+                new MatricButton(MatricConstants.INFO, "Info", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.INFO_LABEL, "General Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.INFO2, "Info", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.INFO_LABEL2, "General Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.INFO3, "Info", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+                new MatricButton(MatricConstants.INFO_LABEL3, "General Info:", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+
+                new MatricButton(MatricConstants.LANDINGPAD, "Landing Pad", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true),
+
+                new MatricButton(MatricConstants.TARGETSHIELDVALUE, "Target Shield", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),
+                new MatricButton(MatricConstants.TARGETHULLVALUE, "Target Hull", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),                
+                new MatricButton(MatricConstants.TARGETSUBSYSVALUE, "Target Subsystem", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isSlider: true, isText: true),
+                new MatricButton(MatricConstants.TARGETSUBSYSNAME, "Target Subsystem Name", isButton: false, isIndicator: false, isWarning: false, isSwitch: false, isText: true)
             };
 
             foreach (MatricButton button in templist) {
@@ -161,12 +205,71 @@ namespace EliteFIPServer {
             // Only update if Matric Integration is running
             if (CurrentState.State == RunState.Started) {
                 if (eventType == GameEventType.Status) {
-                    StatusData currentStatus = gameData as StatusData;                   
+                    StatusData currentStatus = gameData as StatusData;                      
                     UpdateStatus(currentStatus);
-                    
+                    UpdateInfo(currentStatus);
+                    updateLastEventUpdateTimeStamp(currentStatus.LastUpdate);
                 } else if (eventType == GameEventType.Target) {
-                    ShipTargetedData currentTarget = gameData as ShipTargetedData;                   
-                    UpdateTarget(currentTarget);                    
+                    ShipTargetedData currentTarget = gameData as ShipTargetedData;                    
+                    UpdateTarget(currentTarget);
+                    updateLastEventUpdateTimeStamp(currentTarget.LastUpdate);
+                } else if (eventType == GameEventType.DockingGranted) {
+                    DockingGrantedData currentDockingGranted = gameData as DockingGrantedData;                    
+                    UpdateLanding(currentDockingGranted, null, null, null, null);
+                    updateLastEventUpdateTimeStamp(currentDockingGranted.Timestamp);
+                } else if (eventType == GameEventType.DockingDenied) {
+                    DockingDeniedData currentDockingDenied = gameData as DockingDeniedData;                    
+                    UpdateLanding(null, currentDockingDenied, null, null, null);
+                    updateLastEventUpdateTimeStamp(currentDockingDenied.Timestamp);
+                } else if (eventType == GameEventType.DockingTimeout) {
+                    DockingTimeoutData currentDockingTimeout = gameData as DockingTimeoutData;
+                    UpdateLanding(null, null, currentDockingTimeout, null, null);
+                    updateLastEventUpdateTimeStamp(currentDockingTimeout.Timestamp);
+                } else if (eventType == GameEventType.DockingCancelled) {
+                    DockingCancelledData currentDockingCancelled = gameData as DockingCancelledData;                    
+                    UpdateLanding(null, null, null, currentDockingCancelled, null);
+                    updateLastEventUpdateTimeStamp(currentDockingCancelled.Timestamp);
+                } else if (eventType == GameEventType.Location) {
+                    LocationData currentLocation = gameData as LocationData;                    
+                    UpdateLanding(null, null, null, null, currentLocation);
+                    updateLastEventUpdateTimeStamp(currentLocation.LastUpdate);
+                } else if (eventType == GameEventType.LoadGame) {
+                    LoadGameData currentLoadGameData = gameData as LoadGameData;                    
+                    UpdateMaxFuelData(currentLoadGameData, null, null, null);
+                    UpdateGameInfo(currentLoadGameData);
+                    updateLastEventUpdateTimeStamp(currentLoadGameData.Timestamp);
+                } else if (eventType == GameEventType.Loadout) {
+                    LoadoutData currentLoadoutData = gameData as LoadoutData;                    
+                    UpdateMaxFuelData(null, currentLoadoutData, null, null);
+                    updateLastEventUpdateTimeStamp(currentLoadoutData.Timestamp);
+                } else if (eventType == GameEventType.RefuelAll) {
+                    RefuelAllData currentRefuelAllData = gameData as RefuelAllData;
+                    UpdateMaxFuelData(null, null, currentRefuelAllData, null);
+                    updateLastEventUpdateTimeStamp(currentRefuelAllData.Timestamp);
+                } else if (eventType == GameEventType.ReservoirReplenished) {
+                    ReservoirReplenishedData currentReservoirReplenishedData = gameData as ReservoirReplenishedData;                    
+                    UpdateMaxFuelData(null, null, null, currentReservoirReplenishedData);
+                    updateLastEventUpdateTimeStamp(currentReservoirReplenishedData.Timestamp);
+                } else if (eventType == GameEventType.ShipyardNew) {
+                    ShipyardNewData currentShipyardNewData = gameData as ShipyardNewData;                    
+                    if (currentShipyardNewData != null && currentShipyardNewData.NewShipId != null && currentShipyardNewData.NewShipId != "" && !currentShipyardNewData.NewShipId.Equals(this.currentShipId) && currentShipyardNewData.Timestamp > lastEventUpdate)
+                    {
+                        Log.Instance.Info("Found a Ship Change (old id: " + this.currentShipId + ". new id: " + currentShipyardNewData.NewShipId + "), reset Max fuel with next status update");
+                        this.currentShipId = currentShipyardNewData.NewShipId; 
+                        this.resetMaxFuel = true;
+                        this.resetMaxReservoirFuel = true;
+                    }
+                    updateLastEventUpdateTimeStamp(currentShipyardNewData.Timestamp);
+                } else if (eventType == GameEventType.ShipyardSwap) {
+                    ShipyardSwapData currentShipyardSwapData = gameData as ShipyardSwapData;                    
+                    if (currentShipyardSwapData != null && currentShipyardSwapData.ShipId != null && currentShipyardSwapData.ShipId != "" && !currentShipyardSwapData.ShipId.Equals(this.currentShipId) && currentShipyardSwapData.Timestamp > lastEventUpdate)
+                    {
+                        Log.Instance.Info("Found a Ship Change (old id: " + this.currentShipId + ". new id: " + currentShipyardSwapData.ShipId + "), reset Max fuel with next status update");
+                        this.currentShipId = currentShipyardSwapData.ShipId;                        
+                        this.resetMaxFuel = true;
+                        this.resetMaxReservoirFuel = true;
+                    }
+                    updateLastEventUpdateTimeStamp(currentShipyardSwapData.Timestamp);
                 }
             }
         }
@@ -244,6 +347,27 @@ namespace EliteFIPServer {
             if (currentStatus != null) {
                 Log.Instance.Info("Setting Matric state using: {gamestate}", System.Text.Json.JsonSerializer.Serialize(currentStatus));
 
+                //Handle Fuel Stati calculation
+                //If Reset should be triggered, set Max values based of current values (should show the correct max at that point)
+                if (this.resetMaxFuel)
+                {
+                    this.fuelCapacity = currentStatus.FuelMain;
+                    this.fuelReserveMax = currentStatus.FuelReservoir;
+                    this.resetMaxFuel = false;
+                }
+                if (this.resetMaxReservoirFuel)
+                {                    
+                    this.fuelReserveMax = currentStatus.FuelReservoir;
+                    this.resetMaxReservoirFuel = false;
+                }
+
+                //Update Fuel data variables
+                this.fuelCurrent = currentStatus.FuelMain;
+                this.fuelReserve = currentStatus.FuelReservoir;
+
+                Log.Instance.Info("Current Main Fuel Percentage: " + calculatePercentageValue(currentStatus.FuelMain, this.fuelCapacity) + "%");
+                Log.Instance.Info("Current Fuel Reservoir Percentage: " + calculatePercentageValue(currentStatus.FuelReservoir, this.fuelReserveMax) + "%");
+
                 // Handle Indicators / Warnings first
                 if (MatricButtonList.ContainsKey(MatricConstants.DOCKED)) { MatricButtonList[MatricConstants.DOCKED].GameState = currentStatus.Docked; }
                 if (MatricButtonList.ContainsKey(MatricConstants.LANDED)) { MatricButtonList[MatricConstants.LANDED].GameState = currentStatus.Landed; }
@@ -290,7 +414,7 @@ namespace EliteFIPServer {
                 }
                 if (MatricButtonList.ContainsKey(MatricConstants.HARDPOINTS)) {
                     MatricButtonList[MatricConstants.HARDPOINTS].GameState = currentStatus.HardpointsDeployed;
-                    MatricButtonList[MatricConstants.HARDPOINTS].SwitchPosition = currentStatus.HardpointsDeployed ? 1 : 0;
+                    MatricButtonList[MatricConstants.HARDPOINTS].SwitchPosition = currentStatus.HardpointsDeployed ? 1 : 0;                    
                 }
                 if (MatricButtonList.ContainsKey(MatricConstants.LIGHTS)) {
                     MatricButtonList[MatricConstants.LIGHTS].GameState = currentStatus.LightsOn;
@@ -336,37 +460,135 @@ namespace EliteFIPServer {
                 if (MatricButtonList.ContainsKey(MatricConstants.AIMDOWNSIGHT)) {
                     MatricButtonList[MatricConstants.AIMDOWNSIGHT].GameState = currentStatus.AimDownSight;
                     MatricButtonList[MatricConstants.AIMDOWNSIGHT].SwitchPosition = currentStatus.AimDownSight ? 1 : 0;
-                }
+                }                
 
                 // Handle Sliders and text fields
                 if (MatricButtonList.ContainsKey(MatricConstants.FUELMAIN)) {
-                    MatricButtonList[MatricConstants.FUELMAIN].OffText = Math.Round((decimal)currentStatus.FuelReservoir, 2).ToString();
+                    //FormatNumberValues(MatricConstants.FUELMAIN, currentStatus.FuelMain, 1, true);
+                    MatricButtonList[MatricConstants.FUELMAIN].SliderPosition = calculatePercentageValue(currentStatus.FuelMain, this.fuelCapacity);                                                            
                 }
 
                 if (MatricButtonList.ContainsKey(MatricConstants.FUELRESERVOIR)) {
-                    MatricButtonList[MatricConstants.FUELRESERVOIR].OffText = Math.Round((decimal)currentStatus.FuelReservoir, 2).ToString();
-
-                    // Set slider position, and handle data oddities
-                    if (Math.Round((decimal)currentStatus.FuelReservoir, 2) >= 1) {
-                        MatricButtonList[MatricConstants.FUELRESERVOIR].SliderPosition = 100;
-                    } else if (Math.Round((decimal)currentStatus.FuelReservoir, 2) <= 0) {
-                        MatricButtonList[MatricConstants.FUELRESERVOIR].SliderPosition = 0;
-                    } else {
-                        MatricButtonList[MatricConstants.FUELRESERVOIR].SliderPosition = (int)Math.Round((decimal)currentStatus.FuelReservoir, 2) * 100;
-                    }
+                    //MatricButtonList[MatricConstants.FUELRESERVOIR].OffText = Math.Round((decimal)currentStatus.FuelReservoir, 2).ToString();
+                    MatricButtonList[MatricConstants.FUELRESERVOIR].SliderPosition = calculatePercentageValue(currentStatus.FuelReservoir, this.fuelReserveMax);
                 }
 
+                if (MatricButtonList.ContainsKey(MatricConstants.FUELMAIN2))
+                {
+                    FormatNumberValues(MatricConstants.FUELMAIN2, currentStatus.FuelMain, 1);
+                    MatricButtonList[MatricConstants.FUELMAIN2].SliderPosition = calculatePercentageValue(currentStatus.FuelMain, this.fuelCapacity);                    
+                }
+
+                if (MatricButtonList.ContainsKey(MatricConstants.FUELRESERVOIR2))
+                {
+                    //MatricButtonList[MatricConstants.FUELRESERVOIR2].OffText = Math.Round((decimal)currentStatus.FuelReservoir, 2).ToString();
+                    MatricButtonList[MatricConstants.FUELRESERVOIR2].SliderPosition = calculatePercentageValue(currentStatus.FuelReservoir, this.fuelReserveMax);
+                }
 
                 // Handle Special Text fields
                 if (MatricButtonList.ContainsKey(MatricConstants.STATUS_LABEL)) {
+                    MatricButtonList[MatricConstants.STATUS_LABEL].GameState = false;
                     MatricButtonList[MatricConstants.STATUS_LABEL].OffText = FormatStatusLabel(currentStatus);
                 }
                 if (MatricButtonList.ContainsKey(MatricConstants.STATUS)) {
-                    MatricButtonList[MatricConstants.STATUS].OffText = FormatStatusText(currentStatus);
+                    MatricButtonList[MatricConstants.STATUS].GameState = false;
+                    MatricButtonList[MatricConstants.STATUS].OffText = FormatStatusText(currentStatus, this.fuelCapacity, this.fuelReserveMax);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.STATUS_LABEL2))
+                {
+                    MatricButtonList[MatricConstants.STATUS_LABEL2].GameState = false;
+                    MatricButtonList[MatricConstants.STATUS_LABEL2].OffText = FormatStatusLabel(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.STATUS2))
+                {
+                    MatricButtonList[MatricConstants.STATUS2].GameState = false;
+                    MatricButtonList[MatricConstants.STATUS2].OffText = FormatStatusText(currentStatus, this.fuelCapacity, this.fuelReserveMax);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.STATUS_LABEL3))
+                {
+                    MatricButtonList[MatricConstants.STATUS_LABEL3].GameState = false;
+                    MatricButtonList[MatricConstants.STATUS_LABEL3].OffText = FormatStatusLabel(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.STATUS3))
+                {
+                    MatricButtonList[MatricConstants.STATUS3].GameState = false;
+                    MatricButtonList[MatricConstants.STATUS3].OffText = FormatStatusText(currentStatus, this.fuelCapacity, this.fuelReserveMax);
                 }
 
                 foreach (MatricButton button in MatricButtonList.Values) {
                     if (button != null) {
+                        button.UpdateMatricState(matric, CLIENT_ID);
+                    }
+                }
+            }
+        }
+
+        public void UpdateGameInfo(LoadGameData currentLoadGameData)
+        {
+
+            if (currentLoadGameData != null)
+            {
+
+                // Handle Text fields
+                if (MatricButtonList.ContainsKey(MatricConstants.GAMEINFO))
+                {
+                    MatricButtonList[MatricConstants.GAMEINFO].GameState = false;
+                    MatricButtonList[MatricConstants.GAMEINFO].OffText = LoadGameStatusInfo(currentLoadGameData);
+                    this.commander = currentLoadGameData.Commander;
+                }               
+
+                foreach (MatricButton button in MatricButtonList.Values)
+                {
+                    if (button != null)
+                    {
+                        button.UpdateMatricState(matric, CLIENT_ID);
+                    }
+                }
+            }
+        }
+
+        public void UpdateInfo(StatusData currentStatus)
+        {
+
+            if (currentStatus != null)
+            {
+
+                // Handle Text fields
+                if (MatricButtonList.ContainsKey(MatricConstants.INFO_LABEL))
+                {
+                    MatricButtonList[MatricConstants.INFO_LABEL].GameState = false;
+                    MatricButtonList[MatricConstants.INFO_LABEL].OffText = FormatInfoLabel(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.INFO))
+                {
+                    MatricButtonList[MatricConstants.INFO].GameState = false;
+                    MatricButtonList[MatricConstants.INFO].OffText = FormatInfoText(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.INFO_LABEL2))
+                {
+                    MatricButtonList[MatricConstants.INFO_LABEL2].GameState = false;
+                    MatricButtonList[MatricConstants.INFO_LABEL2].OffText = FormatInfoLabel(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.INFO2))
+                {
+                    MatricButtonList[MatricConstants.INFO2].GameState = false;
+                    MatricButtonList[MatricConstants.INFO2].OffText = FormatInfoText(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.INFO_LABEL3))
+                {
+                    MatricButtonList[MatricConstants.INFO_LABEL3].GameState = false;
+                    MatricButtonList[MatricConstants.INFO_LABEL3].OffText = FormatInfoLabel(currentStatus);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.INFO3))
+                {
+                    MatricButtonList[MatricConstants.INFO3].GameState = false;
+                    MatricButtonList[MatricConstants.INFO3].OffText = FormatInfoText(currentStatus);
+                }
+
+                foreach (MatricButton button in MatricButtonList.Values)
+                {
+                    if (button != null)
+                    {
                         button.UpdateMatricState(matric, CLIENT_ID);
                     }
                 }
@@ -379,11 +601,49 @@ namespace EliteFIPServer {
 
                 // Handle Text fields
                 if (MatricButtonList.ContainsKey(MatricConstants.TARGET_LABEL)) {
+                    MatricButtonList[MatricConstants.TARGET_LABEL].GameState = false;
                     MatricButtonList[MatricConstants.TARGET_LABEL].OffText = FormatTargetLabel(currentTarget);
                 }
                 if (MatricButtonList.ContainsKey(MatricConstants.TARGET)) {
+                    MatricButtonList[MatricConstants.TARGET].GameState = false;
                     MatricButtonList[MatricConstants.TARGET].OffText = FormatTargetText(currentTarget);
                 }
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGET_LABEL2))
+                {
+                    MatricButtonList[MatricConstants.TARGET_LABEL2].GameState = false;
+                    MatricButtonList[MatricConstants.TARGET_LABEL2].OffText = FormatTargetLabel(currentTarget);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGET2))
+                {
+                    MatricButtonList[MatricConstants.TARGET2].GameState = false;
+                    MatricButtonList[MatricConstants.TARGET2].OffText = FormatTargetText(currentTarget);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGET_LABEL3))
+                {
+                    MatricButtonList[MatricConstants.TARGET_LABEL3].GameState = false;
+                    MatricButtonList[MatricConstants.TARGET_LABEL3].OffText = FormatTargetLabel(currentTarget);
+                }
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGET3))
+                {
+                    MatricButtonList[MatricConstants.TARGET3].GameState = false;
+                    MatricButtonList[MatricConstants.TARGET3].OffText = FormatTargetText(currentTarget);
+                }
+
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGETSHIELDVALUE))
+                    FormatPercentValues(MatricConstants.TARGETSHIELDVALUE, currentTarget.ShieldHealth, 34);
+
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGETHULLVALUE))
+                    FormatPercentValues(MatricConstants.TARGETHULLVALUE, currentTarget.HullHealth, 34);
+
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGETSUBSYSVALUE))
+                    FormatPercentValues(MatricConstants.TARGETSUBSYSVALUE, currentTarget.SubSystemHealth, 34);
+                
+                if (MatricButtonList.ContainsKey(MatricConstants.TARGETSUBSYSNAME))
+                {
+                    MatricButtonList[MatricConstants.TARGETSUBSYSNAME].GameState = false;
+                    MatricButtonList[MatricConstants.TARGETSUBSYSNAME].OffText = FormatSubsysText(currentTarget);
+                }              
+
 
                 foreach (MatricButton button in MatricButtonList.Values) {
                     if (button != null) {
@@ -391,6 +651,267 @@ namespace EliteFIPServer {
                     }
                 }
             }
+        }     
+
+        public void UpdateLanding(DockingGrantedData currentDockingGranted, DockingDeniedData currentDockingDenied, DockingTimeoutData currentDockingTimeout, DockingCancelledData currentDockingCancelled, LocationData currentLocation)
+        {
+
+            if ((currentDockingGranted != null && currentDockingGranted.Timestamp > lastEventUpdate) || 
+                (currentDockingDenied != null && currentDockingDenied.Timestamp > lastEventUpdate) || 
+                (currentDockingTimeout != null && currentDockingTimeout.Timestamp > lastEventUpdate) || 
+                (currentDockingCancelled != null && currentDockingCancelled.Timestamp > lastEventUpdate) || 
+                currentLocation != null)
+            {
+
+                LandingDataCollect(MatricConstants.LANDING, MatricConstants.LANDING_LABEL, currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+                LandingDataCollect(MatricConstants.LANDING2, MatricConstants.LANDING_LABEL2, currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+            }
+
+            if (MatricButtonList.ContainsKey(MatricConstants.LANDINGPAD))
+            {
+                MatricButtonList[MatricConstants.LANDINGPAD].UpdateButtonText = true;
+                MatricButtonList[MatricConstants.LANDINGPAD].OffText = "<table><tr><td>&nbsp;</td></tr></table>";
+                if (currentDockingGranted != null && currentDockingGranted.LandingPad > 0 && currentDockingGranted.Timestamp > lastEventUpdate)
+                {
+                    MatricButtonList[MatricConstants.LANDINGPAD].ButtonState = true;
+                    MatricButtonList[MatricConstants.LANDINGPAD].GameState = true;                        
+                    MatricButtonList[MatricConstants.LANDINGPAD].OnText = FormatLandingPadText(currentDockingGranted);
+                    Log.Instance.Info("Landing Pad assigned. Pad: " + currentDockingGranted.LandingPad.ToString());
+                }
+                else
+                    if (currentDockingDenied != null && currentDockingDenied.Reason != "" && currentDockingDenied.Timestamp > lastEventUpdate)
+                    {
+                        MatricButtonList[MatricConstants.LANDINGPAD].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                        MatricButtonList[MatricConstants.LANDINGPAD].OffText = "<table><tr><td><B>XX</B></td></tr></table>";
+                        MatricButtonList[MatricConstants.LANDINGPAD].ButtonState = false;
+                        MatricButtonList[MatricConstants.LANDINGPAD].GameState = false;                        
+                        Log.Instance.Info("Landing Denied. Reason: " + currentDockingDenied.Reason);
+                    }
+                    else
+                        if (currentDockingTimeout != null && currentDockingTimeout.Timestamp > lastEventUpdate)
+                        {
+                            MatricButtonList[MatricConstants.LANDINGPAD].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                            MatricButtonList[MatricConstants.LANDINGPAD].OffText = "<table><tr><td><B>--</B></td></tr></table>";
+                            MatricButtonList[MatricConstants.LANDINGPAD].ButtonState = false;
+                            MatricButtonList[MatricConstants.LANDINGPAD].GameState = false;                            
+                            Log.Instance.Info("Landing Denied. Reason: Timeout.");
+                        }
+                        else
+                        {                                                                   
+                            MatricButtonList[MatricConstants.LANDINGPAD].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                            MatricButtonList[MatricConstants.LANDINGPAD].GameState = false;
+                            MatricButtonList[MatricConstants.LANDINGPAD].ButtonState = false;
+                            Log.Instance.Info("No Landing Pad assigned or reset.");
+                        }                    
+            }
+
+            foreach (MatricButton button in MatricButtonList.Values)
+            {
+                if (button != null)
+                {
+                    button.UpdateMatricState(matric, CLIENT_ID);
+                }
+            }            
+        }
+
+        public void UpdateMaxFuelData(LoadGameData currentLoadGameData, LoadoutData currentLoadoutData, RefuelAllData currentRefuelAllData, ReservoirReplenishedData currentReservoirReplenishedData)
+        {
+
+
+            if (currentLoadGameData != null)
+            { 
+                this.fuelCapacity = currentLoadGameData.FuelCapacity;
+                this.fuelCurrent = currentLoadGameData.FuelLevel;
+                this.currentShipId = currentLoadGameData.ShipId;
+                Log.Instance.Info("Fuel Data found after loading game. Capacity: " + this.fuelCapacity + ". Level: " + this.fuelCurrent + ". Percentage: " + calculatePercentageValue(this.fuelCurrent, this.fuelCapacity) + "%");
+            }
+            if (currentLoadoutData != null && currentLoadoutData.Timestamp > lastEventUpdate)
+            {
+                this.fuelCapacity = currentLoadoutData.FuelCapacity.Main;
+                this.fuelReserveMax = currentLoadoutData.FuelCapacity.Reserve;
+                this.currentShipId = currentLoadoutData.ShipId;
+                Log.Instance.Info("Fuel Data found after loading Loadout. Max Main: " + this.fuelCapacity + " (current level: " + calculatePercentageValue(this.fuelCurrent, this.fuelCapacity) + "%). Max Reserve: " + this.fuelReserveMax + " (current level: " + calculatePercentageValue(this.fuelReserve, this.fuelReserveMax) + "%).");
+            }
+            if (currentReservoirReplenishedData != null && currentReservoirReplenishedData.Timestamp > lastEventUpdate)
+            {
+                Log.Instance.Info("ReservoirReplenishedData Event found. Reset Max Reservoir Fuel with next Status update");
+                this.resetMaxReservoirFuel = true;
+            }
+            if (currentRefuelAllData != null && currentRefuelAllData.Timestamp > lastEventUpdate)
+            {
+                this.resetMaxFuel = true;
+                this.resetMaxReservoirFuel = true;
+                Log.Instance.Info("RefuelAll Event found. Reset Max Fuel with next Status update");
+            }
+        }
+
+        private void FormatPercentValues(string field, double value, double threshold)
+        {
+            if (value >= threshold)
+            {
+                MatricButtonList[field].GameState = false;
+                MatricButtonList[field].ButtonState = false;
+                MatricButtonList[field].OffText = FormatPercentValueText(value);
+                MatricButtonList[field].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                MatricButtonList[field].SliderPosition = (int)Math.Round((decimal)value, 0);
+            }
+            else
+                if (value >= 0 && value < threshold)
+            {
+                MatricButtonList[field].GameState = true;
+                MatricButtonList[field].ButtonState = true;
+                MatricButtonList[field].OffText = "<table><tr><td>&nbsp;</td></tr></table>";
+                MatricButtonList[field].OnText = FormatPercentValueText(value);
+                MatricButtonList[field].SliderPosition = (int)Math.Round((decimal)value, 0);
+            }
+            else
+            {
+                MatricButtonList[field].GameState = false;
+                MatricButtonList[field].ButtonState = false;
+                MatricButtonList[field].OffText = "<table><tr><td>&nbsp;</td></tr></table>";
+                MatricButtonList[field].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                MatricButtonList[field].SliderPosition = 0;
+            }
+
+        }
+
+        private void FormatNumberValues(string field, double value, double threshold)
+        {
+            if (value >= threshold)
+            {
+                MatricButtonList[field].GameState = false;
+                MatricButtonList[field].ButtonState = false;
+                MatricButtonList[field].OffText = FormatNumberValueText(value);
+                MatricButtonList[field].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+            }
+            else
+            {
+                MatricButtonList[field].GameState = true;
+                MatricButtonList[field].ButtonState = true;
+                MatricButtonList[field].OffText = "<table><tr><td>&nbsp;</td></tr></table>";
+                MatricButtonList[field].OnText = FormatNumberValueText(value);
+            }
+
+        }
+
+        private void LandingDataCollect(string field, string fieldLabel, DockingGrantedData currentDockingGranted, DockingDeniedData currentDockingDenied, DockingTimeoutData currentDockingTimeout, DockingCancelledData currentDockingCancelled, LocationData currentLocation)
+        {
+            // Handle Text fields
+            if (MatricButtonList.ContainsKey(fieldLabel))
+            {
+                MatricButtonList[fieldLabel].GameState = false;
+                MatricButtonList[fieldLabel].OffText = FormatLandingLabel(currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+            }
+            if (MatricButtonList.ContainsKey(field))
+            {
+                Log.Instance.Info("Landing Event triggered.");
+                if (currentDockingDenied != null && currentDockingDenied.Reason != "" && currentDockingDenied.Timestamp > lastEventUpdate)
+                {
+                    MatricButtonList[field].ButtonState = false;
+                    MatricButtonList[field].GameState = false;
+                    MatricButtonList[field].UpdateButtonText = true;
+                    MatricButtonList[field].OffText = FormatLandingText(currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+                    MatricButtonList[field].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                    Log.Instance.Info("Docking denied Event triggered.");
+                }
+                else
+                    if (currentDockingGranted != null && currentDockingGranted.LandingPad > 0 && currentDockingGranted.Timestamp > lastEventUpdate)
+                    {
+                        MatricButtonList[field].ButtonState = true;
+                        MatricButtonList[field].GameState = true;
+                        MatricButtonList[field].UpdateButtonText = true;
+                        MatricButtonList[field].OffText = "<table><tr><td>&nbsp;</td></tr></table>";
+                        MatricButtonList[field].OnText = FormatLandingText(currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+                        Log.Instance.Info("Docking granted Event triggered.");
+                    }
+                    else
+                        if ((currentDockingTimeout != null && currentDockingTimeout.Timestamp > lastEventUpdate) || (currentDockingCancelled != null && currentDockingCancelled.Timestamp > lastEventUpdate))
+                        {
+                            MatricButtonList[field].ButtonState = false;
+                            MatricButtonList[field].GameState = false;
+                            MatricButtonList[field].UpdateButtonText = true;
+                            MatricButtonList[field].OffText = FormatLandingText(currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+                            MatricButtonList[field].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                            if (currentDockingTimeout != null)
+                                Log.Instance.Info("Docking Timeout Event triggered.");
+                            if (currentDockingCancelled != null)
+                                Log.Instance.Info("Docking Cancelled Event triggered.");
+                        }
+                        else
+                            if (currentLocation != null && currentLocation.LastUpdate > lastEventUpdate)
+                            {
+                                MatricButtonList[field].ButtonState = false;
+                                MatricButtonList[field].GameState = false;
+                                MatricButtonList[field].UpdateButtonText = true;
+                                MatricButtonList[field].OffText = FormatLandingText(currentDockingGranted, currentDockingDenied, currentDockingTimeout, currentDockingCancelled, currentLocation);
+                                MatricButtonList[field].OnText = "<table><tr><td>&nbsp;</td></tr></table>";
+                                Log.Instance.Info("Location Event triggered. Data: " + currentLocation.ToString());
+                            }
+            }
+        }
+
+        private static string LoadGameStatusInfo(LoadGameData loadGameData)
+        {
+
+            string displayText = "";
+            if (loadGameData != null)
+            {
+               
+                    var targetTemplate = $"<table>" +
+                        $"<tr><td>Fid:</td><td>{loadGameData.Fid}&nbsp;</td></tr>" +
+                        $"<tr><td>Commander:</td><td>{loadGameData.Commander}&nbsp;</td></tr>" +
+                        $"<tr><td>has Horizons:</td><td>{loadGameData.HasHorizons}&nbsp;</td></tr>" +
+                        $"<tr><td>has Odyssey:</td><td>{loadGameData.HasOdyssey}&nbsp;</td></tr>" +
+                        $"<tr><td>GameMode:</td><td>{loadGameData.GameMode}&nbsp;</td></tr>" +
+                        $"<tr><td>Language:</td><td>{loadGameData.Language}&nbsp;</td></tr>" +
+                        $"<tr><td>GameVersion:</td><td>{loadGameData.GameVersion}&nbsp;</td></tr>" +
+                        $"<tr><td>Build:</td><td>{loadGameData.Build}&nbsp;</td></tr>" +
+                        $"<tr><td>Group:</td><td>{loadGameData.Group}&nbsp;</td></tr>" +
+                        $"</table>";
+                    displayText = targetTemplate;
+            }
+            else
+            {
+
+                displayText = "<table><tr><td>&nbsp;</td></tr></table>";
+            }
+            
+            return displayText;
+        }
+
+        private static int calculatePercentageValue(double currentValue, double maxValue)
+        {
+            int result = 0;
+
+            if (maxValue > 0)
+            {
+                result = (int)(Math.Round((decimal)(currentValue / maxValue), 2) * 100);
+            }
+
+            return result;
+        }
+
+        private static string FormatSubsysText(ShipTargetedData targetData)
+        {
+
+            string displayText = "";
+            if (targetData != null)
+            {
+
+                if (targetData.TargetLocked == true)
+                {
+                    
+                    var targetTemplate = $"<table>" +
+                        $"<tr><td>{targetData.SubSystem}</td></tr>" +                        
+                        $"</table>";
+                    displayText = targetTemplate;
+                }
+                else
+                {
+                    displayText = "<table><tr><td>No Sub-System selected</td></tr></table>";
+                }
+            }
+            return displayText;
         }
 
         private static string FormatTargetText(ShipTargetedData targetData) {
@@ -400,13 +921,16 @@ namespace EliteFIPServer {
 
                 if (targetData.TargetLocked == true) {
                     string bountyText = targetData.Bounty == 0 ? "" : targetData.Bounty.ToString();
+                    string shield = ((int)Math.Round((decimal)targetData.ShieldHealth, 0)).ToString();
+                    string hull = ((int)Math.Round((decimal)targetData.HullHealth, 0)).ToString();
+                    string subsys = ((int)Math.Round((decimal)targetData.SubSystemHealth, 0)).ToString();
                     var targetTemplate = $"<table>" +
-                        $"<tr><td>{targetData.Ship}</td></tr>" +
-                        $"<tr><td>{targetData.PilotName}</td></tr>" +
-                        $"<tr><td>{targetData.PilotRank}</td></tr>" +
-                        $"<tr><td>{targetData.Faction}</td></tr>" +
-                        $"<tr><td>{targetData.LegalStatus}</td></tr>" +
-                        $"<tr><td>{bountyText}</td></tr>" +
+                        $"<tr><td>{targetData.Ship} (Shield: {shield}%. Hull: {hull}%. Subsys: {targetData.SubSystem} {subsys}%)</td></tr>" +
+                        $"<tr><td>{targetData.PilotName}&nbsp;</td></tr>" +
+                        $"<tr><td>{targetData.PilotRank}&nbsp;</td></tr>" +
+                        $"<tr><td>{targetData.Faction}&nbsp;</td></tr>" +
+                        $"<tr><td>{targetData.LegalStatus}&nbsp;</td></tr>" +
+                        $"<tr><td>{bountyText}&nbsp;</td></tr>" +
                         $"</table>";
                     displayText = targetTemplate;
                 } else {
@@ -438,10 +962,263 @@ namespace EliteFIPServer {
             return displayText;
         }
 
-        private static string FormatStatusText(StatusData statusData) {
+        private static string FormatInfoText(StatusData statusData)
+        {
+
+            string displayText = "";
+            string balance = statusData.Balance.ToString("N0");
+            if (statusData != null)
+            {                
+                var targetTemplate = $"<table>" +
+                $"<tr><td>{statusData.Cargo} tons</td></tr>" +
+                $"<tr><td>{balance} Cr</td></tr>" +
+                $"</table>";
+                displayText = targetTemplate;                
+            }
+            return displayText;
+        }
+
+        private static string FormatInfoLabel(StatusData statusData)
+        {
+
+            string displayText = "";
+            if (statusData != null)
+            {                
+                var targetTemplate = $"<table>" +                    
+                    $"<tr><td>Cargo:</td></tr>" +
+                    $"<tr><td>Balance:</td></tr>" +
+                    $"</table>";
+                displayText = targetTemplate;                
+            }
+            return displayText;
+        }
+
+        private static string FormatPercentValueText(double value)
+        {
+
+            string displayText = "";
+
+            if (value >= 0 && value <= 100)
+            { 
+                string strValue = ((int)Math.Round((decimal)value, 0)).ToString();
+                var targetTemplate = $"<table>" +
+                    $"<tr><td><B>{strValue}%</B></td></tr>" +
+                    $"</table>";
+                displayText = targetTemplate;
+            }
+            else
+            {
+                displayText = "<table><tr><td>&nbsp;</td></tr></table>";
+            }
+
+            return displayText;
+        }
+
+        private static string FormatNumberValueText(double value)
+        {
+
+            string displayText = "";
+
+            if (value >= 0)
+            {
+                string strValue = ((int)Math.Round((decimal)value, 0)).ToString();
+                var targetTemplate = $"<table>" +
+                    $"<tr><td><B>{strValue}</B></td></tr>" +
+                    $"</table>";
+                displayText = targetTemplate;
+            }
+            else
+            {
+                displayText = "<table><tr><td>&nbsp;</td></tr></table>";
+            }
+
+            return displayText;
+        }
+
+        private static string FormatLandingPadText(DockingGrantedData landingData)
+        {
+
+            string displayText = "";
+            if (landingData != null)
+            {
+
+                if (landingData.LandingPad > 0)
+                {
+                    string landingPad = landingData.LandingPad.ToString();
+                    if (landingData.LandingPad < 10)
+                        landingPad = "0" + landingPad;
+                    var targetTemplate = $"<table>" +                        
+                        $"<tr><td><B>{landingPad}</B></td></tr>" +
+                        $"</table>";
+                    displayText = targetTemplate;
+                }
+                else
+                {
+                    displayText = "<table><tr><td>&nbsp;</td></tr></table>";
+                }
+            }            
+
+            return displayText;
+        }
+
+        private static string FormatLandingText(DockingGrantedData landingData, DockingDeniedData landingDeniedData, DockingTimeoutData landingTimeoutData, DockingCancelledData landingCancelledData, LocationData landingLocationData)
+        {
+
+            string displayText = "";
+            if (landingData != null)
+            {
+
+                if (landingData.LandingPad > 0)
+                {
+                    string landingPad = landingData.LandingPad.ToString();
+                    if (landingData.LandingPad < 10)
+                        landingPad = "0" + landingPad;
+                    var targetTemplate = $"<table>" +
+                        $"<tr><td>{landingData.StationName}&nbsp;</td></tr>" +
+                        $"<tr><td><B>{landingPad}</B></td></tr>" +
+                        $"</table>";
+                    displayText = targetTemplate;
+                }
+                else
+                {
+                    var targetTemplate = $"<table>" +
+                       $"<tr><td>{landingData.StationName}&nbsp;</td></tr>" +
+                       $"<tr><td>&nbsp;</td></tr>" +
+                       $"</table>";
+                    displayText = targetTemplate;
+                }
+            }
+            else
+                if (landingDeniedData != null)
+                {
+
+                    if (landingDeniedData.Reason != "")
+                    {
+                        var targetTemplate = $"<table>" +
+                            $"<tr><td>{landingDeniedData.StationName}&nbsp;</td></tr>" +
+                            $"<tr><td>{landingDeniedData.Reason}&nbsp;</td></tr>" +
+                            $"</table>";
+                        displayText = targetTemplate;
+                    }
+                    else
+                    {
+                        var targetTemplate = $"<table>" +
+                            $"<tr><td>{landingDeniedData.StationName}&nbsp;</td></tr>" +
+                            $"<tr><td>&nbsp;</td></tr>" +
+                            $"</table>";
+                        displayText = targetTemplate;
+                    }
+                }
+                else
+                    if (landingTimeoutData != null)
+                    {
+                        var targetTemplate = $"<table>" +
+                            $"<tr><td>{landingTimeoutData.StationName}&nbsp;</td></tr>" +
+                            $"<tr><td>Timeout</td></tr>" +
+                            $"</table>";
+                        displayText = targetTemplate;
+                    }
+                    else
+                        if (landingCancelledData != null)
+                        {
+                            var targetTemplate = $"<table>" +
+                                $"<tr><td>{landingCancelledData.StationName}</td></tr>" +
+                                $"<tr><td>Cancelled</td></tr>" +
+                                $"</table>";
+                            displayText = targetTemplate;
+                        }
+                        else
+                            if (landingLocationData != null)
+                            {
+                                string distance = Math.Round((decimal)landingLocationData.DistanceFromStarInLightSeconds, 2).ToString("N2");
+                                var targetTemplate = $"<table>" +
+                                     $"<tr><td>{landingLocationData.StationName}&nbsp;</td></tr>" +
+                                    $"<tr><td>{landingLocationData.SystemName}&nbsp;</td></tr>" +
+                                    $"<tr><td>{landingLocationData.BodyName}&nbsp;</td></tr>" +
+                                    $"<tr><td>{distance} ls</td></tr>" +
+                                    $"<tr><td>{landingLocationData.StationEconomy}&nbsp;</td></tr>" +                                    
+                                    $"</table>";
+                                displayText = targetTemplate;
+                            }
+
+            return displayText;
+        }
+
+        private static string FormatLandingLabel(DockingGrantedData landingData, DockingDeniedData landingDeniedData, DockingTimeoutData landingTimeoutData, DockingCancelledData landingCancelledData, LocationData landingLocationData)
+        {
+
+            string displayText = "";
+            if (landingData != null)
+            {
+                if (landingData.LandingPad > 0)
+                {
+                    var targetTemplate = $"<table>" +
+                        $"<tr><td>Station Name:</td></tr>" +
+                        $"<tr><td><B>Landing Pad:</B></td></tr>" +                        
+                        $"</table>";
+                    displayText = targetTemplate;
+                }
+                else
+                {
+
+                    var targetTemplate = $"<table>" +
+                        $"<tr><td>Station Name:</td></tr>" +
+                        $"<tr><td>&nbsp;</td></tr>" +
+                        $"</table>";
+                    displayText = targetTemplate;
+                }
+            }
+            else
+                if (landingDeniedData != null)
+                {
+
+                    if (landingDeniedData.Reason != "")
+                    {
+                        var targetTemplate = $"<table>" +
+                            $"<tr><td>Station Name:</td></tr>" +
+                            $"<tr><td>Deny Reason:</td></tr>" +
+                            $"</table>";
+                        displayText = targetTemplate;
+                    }
+                    else
+                    {
+                        var targetTemplate = $"<table>" +
+                            $"<tr><td>Station Name:</td></tr>" +
+                            $"<tr><td>&nbsp;</td></tr>" +
+                            $"</table>";
+                        displayText = targetTemplate;
+                    }
+                }
+                else
+                    if (landingTimeoutData != null || landingCancelledData != null)
+                    {
+                        var targetTemplate = $"<table>" +
+                            $"<tr><td>Station Name:</td></tr>" +
+                            $"<tr><td>Deny Reason:</td></tr>" +
+                            $"</table>";
+                        displayText = targetTemplate;
+                    }
+                    else
+                        if (landingLocationData != null)
+                        {
+                            var targetTemplate = $"<table>" +
+                                $"<tr><td>Station Name:</td></tr>" +
+                                $"<tr><td>System Name:</td></tr>" +
+                                $"<tr><td>Body Name:</td></tr>" +
+                                $"<tr><td>Distance Main Star:</td></tr>" +
+                                $"<tr><td>Economy:</td></tr>" +
+                                $"</table>";
+                            displayText = targetTemplate;
+                        }
+
+            return displayText;
+        }
+
+        private static string FormatStatusText(StatusData statusData, double maxFuel, double maxResFuel) {
 
             string displayText = "";
             if (statusData != null) {
+                string balance = statusData.Balance.ToString("N0");
                 var statusTemplate = $"<table>";
 
                 if (string.IsNullOrEmpty(statusData.BodyName) == true) {
@@ -454,11 +1231,12 @@ namespace EliteFIPServer {
                 } else {
                     statusTemplate = statusTemplate + $"<tr><td>{statusData.LegalState}</td></tr>";
                 }
-
-                statusTemplate = statusTemplate + $"<tr><td><br></td></tr>";
-                statusTemplate = statusTemplate + $"<tr><td>{statusData.Cargo.ToString()}</td></tr>";
-                statusTemplate = statusTemplate + $"<tr><td>{Math.Round((decimal)statusData.FuelMain, 2).ToString()}</td></tr>";
-                statusTemplate = statusTemplate + $"<tr><td>{Math.Round((decimal)statusData.FuelReservoir, 2).ToString()}</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>{statusData.DestinationName}&nbsp;</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>{Math.Round((decimal)statusData.FuelMain, 1).ToString()} tons (Max: {Math.Round((decimal)maxFuel, 0).ToString()} tons, {calculatePercentageValue(statusData.FuelMain, maxFuel)}%)</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>{Math.Round((decimal)statusData.FuelReservoir, 2).ToString()} tons (Max: {Math.Round((decimal)maxResFuel, 2).ToString()} tons, {calculatePercentageValue(statusData.FuelReservoir, maxResFuel)}%)</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>&nbsp;</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>{statusData.Cargo.ToString()} tons</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>{balance} Cr</td></tr>";                
                 statusTemplate = statusTemplate + $"</table>";
                 displayText = statusTemplate;
             }
@@ -473,14 +1251,30 @@ namespace EliteFIPServer {
 
                 statusTemplate = statusTemplate + $"<tr><td>Closest body:</td></tr>";
                 statusTemplate = statusTemplate + $"<tr><td>Legal state:</td></tr>";
-                statusTemplate = statusTemplate + $"<tr><td><br></td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>Destination Name:</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>Current Main fuel:</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>Current Reservoir fuel:</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>&nbsp;</td></tr>";
                 statusTemplate = statusTemplate + $"<tr><td>Cargo:</td></tr>";
-                statusTemplate = statusTemplate + $"<tr><td>Main fuel:</td></tr>";
-                statusTemplate = statusTemplate + $"<tr><td>Fuel reservoir:</td></tr>";
+                statusTemplate = statusTemplate + $"<tr><td>Balance:</td></tr>";                
                 statusTemplate = statusTemplate + $"</table>";
                 displayText = statusTemplate;
             }
             return displayText;
+        }
+
+        private static void updateLastEventUpdateTimeStamp(DateTime timestamp)
+        {
+            if (timestamp != null)
+            {
+                if (lastEventUpdate < timestamp)
+                    lastEventUpdate = timestamp;
+                else
+                    if (lastEventUpdate > timestamp && DateTime.UtcNow > lastEventUpdate)
+                        lastEventUpdate = DateTime.UtcNow;
+            }
+            else
+                lastEventUpdate = DateTime.UtcNow;
         }
     }
 }

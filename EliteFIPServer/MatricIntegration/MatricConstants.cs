@@ -31,7 +31,7 @@
         public static string HUDMODE = "HudMode";
         public static string NIGHTVISION = "NightVision";
         public static string FSDJUMP = "FsdJump";
-        public static string SRVHIGHBEAM = "SrvHighBeam";
+        public static string SRVHIGHBEAM = "SrvHighBeam";       
 
         // Extended Status data from Odyssey
         public static string ONFOOT = "OnFoot";
@@ -47,19 +47,52 @@
         public static string VERYCOLD = "VeryCold";
         public static string VERYHOT = "VeryHot";
 
-        // Pure text data
+        // Text data and Sliders
         public static string FUELMAIN = "FuelMain";
         public static string FUELRESERVOIR = "FuelReservoir";
+
+        public static string FUELMAIN2 = "FuelMain2";
+        public static string FUELRESERVOIR2 = "FuelReservoir2";
 
 
         // Status Text Displays
         public static string STATUS = "Status";
         public static string STATUS_LABEL = "StatusLabel";
+        public static string STATUS2 = "Status2";
+        public static string STATUS_LABEL2 = "StatusLabel2";
+        public static string STATUS3 = "Status3";
+        public static string STATUS_LABEL3 = "StatusLabel3";
 
         // Target Text Displays
         public static string TARGET = "Target";
         public static string TARGET_LABEL = "TargetLabel";
+        public static string TARGET2 = "Target2";
+        public static string TARGET_LABEL2 = "TargetLabel2";
+        public static string TARGET3 = "Target3";
+        public static string TARGET_LABEL3 = "TargetLabel3";
 
+        // Landing Text Displays
+        public static string LANDING = "Landing";
+        public static string LANDING_LABEL = "LandingLabel";
+        public static string LANDING2 = "Landing2";
+        public static string LANDING_LABEL2 = "LandingLabel2";
+
+        // Info Text Displays
+        public static string INFO = "Info";
+        public static string INFO_LABEL = "InfoLabel";
+        public static string INFO2 = "Info2";
+        public static string INFO_LABEL2 = "InfoLabel2";
+        public static string INFO3 = "Info3";
+        public static string INFO_LABEL3= "InfoLabel3";
+        public static string GAMEINFO = "GameInfo";
+
+        // Custom Button
+        public static string LANDINGPAD = "Landingpad";
+        public static string TARGETSHIELDVALUE = "TargetShieldValue";
+        public static string TARGETHULLVALUE = "TargetHullValue";        
+        public static string TARGETSUBSYSVALUE = "TargetSubsysValue";
+
+        public static string TARGETSUBSYSNAME = "TargetSubsysName";        
 
         // Button prefixes
         public static string BTN = "btn"; // Standard On/Off Button, where button text can change according to state

@@ -119,6 +119,63 @@ namespace EliteFIPServer
                 } else if (eventType == GameEventType.Jump) {
                     JumpData currentJumpData = gameData as JumpData;
                     GameDataUpdateController.SendJumpUpdate(currentJumpData);
+
+                } else if (eventType == GameEventType.DockingGranted) {
+                    DockingGrantedData currentDockingGranted = gameData as DockingGrantedData;
+                    GameDataUpdateController.SendDockingGrantedUpdate(currentDockingGranted);
+
+                }
+                else if (eventType == GameEventType.DockingDenied)
+                {
+                    DockingDeniedData currentDockingDenied = gameData as DockingDeniedData;
+                    GameDataUpdateController.SendDockingDeniedUpdate(currentDockingDenied);
+
+                }
+                else if (eventType == GameEventType.DockingTimeout)
+                {
+                    DockingTimeoutData currentDockingTimeout = gameData as DockingTimeoutData;
+                    GameDataUpdateController.SendDockingTimeoutUpdate(currentDockingTimeout);
+
+                }
+                else if (eventType == GameEventType.DockingCancelled)
+                {
+                    DockingCancelledData currentDockingCancelled = gameData as DockingCancelledData;
+                    GameDataUpdateController.SendDockingCancelledUpdate(currentDockingCancelled);
+                }
+                else if (eventType == GameEventType.RefuelAll)
+                {
+                    RefuelAllData currentRefuelAll = gameData as RefuelAllData;
+                    GameDataUpdateController.SendRefuelAllUpdate(currentRefuelAll);
+                }
+                else if (eventType == GameEventType.RefuelPartial)
+                {
+                    RefuelPartialData currentRefuelPartial = gameData as RefuelPartialData;
+                    GameDataUpdateController.SendRefuelPartialUpdate(currentRefuelPartial);
+                }
+                else if (eventType == GameEventType.ReservoirReplenished)
+                {
+                    ReservoirReplenishedData currentReservoirReplenished = gameData as ReservoirReplenishedData;
+                    GameDataUpdateController.SendReservoirReplenishedUpdate(currentReservoirReplenished);
+                }
+                else if (eventType == GameEventType.LoadGame)
+                {
+                    LoadGameData currentLoadGame = gameData as LoadGameData;
+                    GameDataUpdateController.SendLoadGameUpdate(currentLoadGame);
+                }
+                else if (eventType == GameEventType.Loadout)
+                {
+                    LoadoutData currentLoadout = gameData as LoadoutData;
+                    GameDataUpdateController.SendLoadoutUpdate(currentLoadout);
+                }
+                else if (eventType == GameEventType.ShipyardNew)
+                {
+                    ShipyardNewData currentShipyardNew = gameData as ShipyardNewData;
+                    GameDataUpdateController.SendShipyardNewUpdate(currentShipyardNew);
+                }
+                else if (eventType == GameEventType.ShipyardSwap)
+                {
+                    ShipyardSwapData currentShipyardSwap = gameData as ShipyardSwapData;
+                    GameDataUpdateController.SendShipyardSwapUpdate(currentShipyardSwap);
                 }
             }
         }

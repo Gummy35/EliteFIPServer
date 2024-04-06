@@ -11,7 +11,20 @@ namespace EliteFIPServer
         Location,
         Navigation,
         PreviousNavRoute,
-        Jump
+        Jump,
+        DockingGranted,
+        DockingDenied,
+        DockingTimeout,
+        DockingCancelled,
+        LoadGame,
+        Loadout,
+        RefuelAll,
+        RefuelPartial,
+        ReservoirReplenished,
+        FuelScoop,
+        ShipyardSwap,
+        ShipyardNew,
+        ShipyardBuy
     }
     public struct GameEventTrigger {
         public GameEventType GameEvent { get; set; }
@@ -120,7 +133,8 @@ namespace EliteFIPServer
             GameDataWorkerState = RunState.Started;
             Log.Instance.Info("Game Data Worker Thread started");
 
-            DateTime lastSuccessfulUpdate = DateTime.Today;
+            //DateTime lastSuccessfulUpdate = DateTime.Today;
+            DateTime lastSuccessfulUpdate = DateTime.UtcNow;
 
             CancellationToken cToken = GameDataWorkerCTS.Token;
 
