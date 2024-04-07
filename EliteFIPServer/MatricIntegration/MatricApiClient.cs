@@ -25,8 +25,8 @@ namespace EliteFIPServer {
 
         // Data variables
         private double fuelCapacity = 0;
-        private double fuelReserve = 0;
         private double fuelCurrent = 0;
+        private double fuelReserve = 0;        
         private double fuelReserveMax = 0;
         private string commander = "";
         private string currentShipId = "";
@@ -718,7 +718,7 @@ namespace EliteFIPServer {
         {
 
 
-            if (currentLoadGameData != null)
+            if (currentLoadGameData != null && (this.fuelCapacity == 0 || currentLoadGameData.Timestamp > lastEventUpdate))
             { 
                 this.fuelCapacity = currentLoadGameData.FuelCapacity;
                 this.fuelCurrent = currentLoadGameData.FuelLevel;

@@ -102,6 +102,8 @@ any settings (which triggers a reload of the config file).
    automatically during the last jump, before the arrival event in the final system, resulting in the route being cleared in FIP server.
    To mitigate this, Elite FIP server provides a 'Previous Route' which will show the completed route if desired. See 
    [Panel server](EliteFIPServer/PanelServer.md) for more information
+
+ - Fuel Gauges may not always work properly after you have changed Ship, normally it should fix itself after first Refuel.
    
 
 ---
@@ -250,7 +252,7 @@ find older version history [here](https://github.com/EarthstormSoftware/EliteFIP
 
 ---
 # Thanks to...
-- EarthstormSoftware for providing this great software I just enhanced a bit
+- EarthstormSoftware for providing this great software, I just enhanced it a bit
 - Somfic and all the contributers to EliteAPI
 - AnarchyZG - the developer of Matric, both for the software and the support
 - The developers and contributors to EliteJournalReader
