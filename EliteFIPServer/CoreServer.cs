@@ -1,4 +1,5 @@
-﻿using EliteFIPServer.Logging;
+﻿using EliteAPI.Abstractions.Events;
+using EliteFIPServer.Logging;
 using System.Collections.Concurrent;
 
 
@@ -24,15 +25,14 @@ namespace EliteFIPServer
         FuelScoop,
         ShipyardSwap,
         ShipyardNew,
-        ShipyardBuy
+        ShipyardBuy,
+        ApproachBody
     }
     public struct GameEventTrigger {
-        public GameEventType GameEvent { get; set; }
-        public object EventData { get; set; }
+        public IEvent GameEvent { get; set; }
 
-        public GameEventTrigger(GameEventType gameEvent, Object eventData) {
+        public GameEventTrigger(IEvent gameEvent) {
             GameEvent = gameEvent;
-            EventData = eventData;
         }
     }
 
@@ -52,21 +52,14 @@ namespace EliteFIPServer
 
         public EliteAPIIntegration EliteAPIIntegration { get; private set; }
 
-        // Matric Integration
-        public MatricApiClient MatricAPI { get; private set; }
-
-        // Panel Server
-        public PanelServer PanelServer { get; private set; }
-
+        public EDCPClient EDCPClient { get; private set; }
 
         public CoreServer(ServerConsole serverConsole) {
             ServerConsole = serverConsole;
             CurrentState = new ComponentState();
 
             EliteAPIIntegration = new EliteAPIIntegration(this);
-            MatricAPI = new MatricApiClient();
-            PanelServer = new PanelServer(this);            
-
+            EDCPClient = new EDCPClient();
         }
 
         public void Start() {
@@ -82,25 +75,10 @@ namespace EliteFIPServer
 
             EliteAPIIntegration.Start();
 
-            // Start Matric Integration if set to autostart
-            if (Properties.Settings.Default.AutostartMatricIntegration) {
-                this.StartMatricIntegration();
-            }
-            // Start Matric Integration if set to autostart
-            if (Properties.Settings.Default.AutostartPanelServer) {
-                PanelServer.Start();
-            }
-
+ 
             CurrentState.Set(RunState.Started);
             //ServerConsole.UpdateServerStatus(ServerCoreState);
             Log.Instance.Info("Server Core started");            
-        }
-
-        public void StartMatricIntegration() {
-            Log.Instance.Info("Matric Integration starting");
-
-            // Start Matric Integration
-            MatricAPI.Start();
         }
 
         public void Stop() {
@@ -111,20 +89,12 @@ namespace EliteFIPServer
             // Isssue the cancel to signal worker threads to end
             GameDataWorkerCTS.Cancel();
 
-            // Stop Matric Integration
-            StopMatricIntegration();
-
             // Stop Panel Server
-            PanelServer.Stop();
+            EDCPClient.Stop();
 
             GameDataQueue.CompleteAdding();
             CurrentState.Set(RunState.Stopped);                                   
             Log.Instance.Info("Server Core stopped");
-        }
-
-        public void StopMatricIntegration() {
-            Log.Instance.Info("Matric Integration stopping");
-            MatricAPI.Stop();
         }
 
 
@@ -141,17 +111,16 @@ namespace EliteFIPServer
 
             while (cToken.IsCancellationRequested == false && !GameDataQueue.IsCompleted) {
 
-                GameEventTrigger gameEventTrigger = new GameEventTrigger(GameEventType.Empty, null);
+                GameEventTrigger gameEventTrigger = new GameEventTrigger(null);
                 try {
                     gameEventTrigger = GameDataQueue.Take(cToken);
                 } catch (InvalidOperationException) { }
 
-                if (gameEventTrigger.GameEvent != GameEventType.Empty) {
-                    Log.Instance.Info("Updating {statetype} data", gameEventTrigger.GameEvent.ToString());
-                    PanelServer.UpdateGameState(gameEventTrigger.GameEvent, gameEventTrigger.EventData);
-                    MatricAPI.UpdateGameState(gameEventTrigger.GameEvent, gameEventTrigger.EventData);
+                if (gameEventTrigger.GameEvent != null) {
+                    // Log.Instance.Info("Updating {statetype} data", gameEventTrigger.GameEvent.ToString());
+                    EDCPClient.UpdateGameState(gameEventTrigger.GameEvent);
                 }
-                Log.Instance.Info("Game Data Worker Thread waiting for new work");
+                //Log.Instance.Info("Game Data Worker Thread waiting for new work");
             }
             Log.Instance.Info("Game Data Worker Thread ending");
         }
@@ -164,15 +133,13 @@ namespace EliteFIPServer
             Log.Instance.Info("GameData Worker Thread ended");
         }
 
-        public void GameDataEvent(GameEventType eventType, Object evt) {
+        public void GameDataEvent(IEvent evt)
+        {
+            if (evt == null) return;
 
-            GameEventTrigger newStatusEvent = new GameEventTrigger(eventType, evt);
+            GameEventTrigger newEvent = new GameEventTrigger(evt);
             CancellationToken cToken = GameDataWorkerCTS.Token;
-            GameDataQueue.Add(newStatusEvent, cToken);
+            GameDataQueue.Add(newEvent, cToken);
         }
-
-        public MatricApiClient GetMatricApi() {
-            return MatricAPI;
-        }   
     }
 }

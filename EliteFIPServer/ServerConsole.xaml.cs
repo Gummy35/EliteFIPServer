@@ -1,6 +1,7 @@
 ﻿
 using EliteFIPServer.Logging;
-using Matric.Integration;
+using NLog;
+using NLog.Config;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
@@ -16,119 +17,67 @@ namespace EliteFIPServer {
         private delegate void ImageSafeCallDelegate(Image target, bool newstate);
         private delegate void ButtonSafeCallDelegate(Button target, bool newstate);
 
-        private bool MatricIntegrationActive = false;
-        private bool PanelServerActive = false;
-        private List<ClientInfo> MatricClientList = new List<ClientInfo>();
+        private bool EDCPActive = false;
+
+        private static readonly NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
+        private NLog.Targets.MethodCallTarget _nlogMemoryTarget;
 
         public ServerConsole() {
             InitializeComponent();
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             txtVersion.Text = version.ToString();
+
             Log.LogEnabled(Properties.Settings.Default.EnableLog);
-            refreshSettingsTab();
-            
+
+            _nlogMemoryTarget = new NLog.Targets.MethodCallTarget("LogTextbox", LogText);
+            var _nlogMemoryRule = new LoggingRule("*", LogLevel.Trace, _nlogMemoryTarget);
+            LogManager.Configuration.AddTarget("logTextBoxTarget", _nlogMemoryTarget);
+            LogManager.Configuration.LoggingRules.Add(_nlogMemoryRule);
+            LogManager.ReconfigExistingLoggers();
+
+            chkEnableLog.IsChecked = Properties.Settings.Default.EnableLog;
+
             ServerCore = new CoreServer(this);
             ServerCore.CurrentState.onStateChange += HandleCoreServerStateChange;
-            ServerCore.PanelServer.CurrentState.onStateChange += HandlePanelServerStateChange;
-            ServerCore.MatricAPI.CurrentState.onStateChange += HandleMatricIntegrationStateChange;
+            ServerCore.EDCPClient.CurrentState.onStateChange += HandleEDCPStateChange;
 
-            dgMatricClients.ItemsSource = MatricClientList;
+            ServerCore.EDCPClient.Start();
             ServerCore.Start();
 
         }
 
-        private void refreshSettingsTab() {
-
-            chkEnableLog.IsChecked = Properties.Settings.Default.EnableLog;
-            chkAutostartMatricIntegration.IsChecked = Properties.Settings.Default.AutostartMatricIntegration;
-            txtMatricPort.Value = Properties.Settings.Default.MatricApiPort;
-            txtMatricRetryInterval.Value = Properties.Settings.Default.MatricRetryInterval;
-            chkAutostartPanelServer.IsChecked= Properties.Settings.Default.AutostartPanelServer;
-            txtPanelServerPort.Value = Properties.Settings.Default.PanelServerPort;
+        private void LogText(LogEventInfo info, object[] arg2)
+        {
+            Dispatcher.BeginInvoke(new Action(() => LogTextbox.AppendText($"{info.Message}\n")));
         }
 
-        private void saveSettings() {                       
+        private void LogText(object sender, string message)
+        {
+        }
 
-            string messageBoxText = "Do you want to save changes?";
-            string caption = "Elite FIP Server Settings";
-            MessageBoxButton button = MessageBoxButton.YesNo;
-            MessageBoxImage icon = MessageBoxImage.Warning;
-            MessageBoxResult result;
 
-            result = MessageBox.Show(messageBoxText, caption, button, icon, MessageBoxResult.Yes);
-            if (result == MessageBoxResult.Yes) {
-                Log.Instance.Info("Saving settings");
-                Properties.Settings.Default.EnableLog = (bool)chkEnableLog.IsChecked;
-                Properties.Settings.Default.AutostartMatricIntegration = (bool)chkAutostartMatricIntegration.IsChecked;
-                Properties.Settings.Default.MatricApiPort = (int)txtMatricPort.Value;
-                Properties.Settings.Default.MatricRetryInterval = (int)txtMatricRetryInterval.Value;
-                Properties.Settings.Default.AutostartPanelServer = (bool)chkAutostartPanelServer.IsChecked;
-                Properties.Settings.Default.PanelServerPort = (int)txtPanelServerPort.Value;
-                Properties.Settings.Default.Save();
-                Log.LogEnabled(Properties.Settings.Default.EnableLog);
+        private void CmdEDCP_onClick(object sender, RoutedEventArgs e)
+        {
+            if (EDCPActive)
+            {
+                ServerCore.EDCPClient.Stop();
             }
-            
-        }
-
-        void MainTabMenu_SelectionChanged(object sender, SelectionChangedEventArgs e) {
-            if (tabClients.IsSelected) {
-                Log.Instance.Info("Client tab selected");
-                MatricClientList = ServerCore.GetMatricApi().GetConnectedClients();
-                dgMatricClients.ItemsSource = MatricClientList;
+            else
+            {
+                ServerCore.EDCPClient.Start();
             }
-        }
-
-        private void CmdMatric_onClick(object sender, RoutedEventArgs e) {            
-            cmdMatric.IsEnabled = false;
-            if (MatricIntegrationActive) {
-                cmdMatric.Content = "Stopping...";
-                ServerCore.StopMatricIntegration();
-            } else {
-                cmdMatric.Content = "Starting...";
-                ServerCore.StartMatricIntegration();
-            }
-                
-        }
-        private void CmdPanelServer_onClick(object sender, RoutedEventArgs e) {            
-            if (PanelServerActive) {                
-                ServerCore.PanelServer.Stop();
-            } else {                
-                ServerCore.PanelServer.Start();
-            }
-        }
-
-        private void CmdRevertSettings_onClick(object sender, RoutedEventArgs e) {
-            string messageBoxText = "Do you want to revert to saved settings?";
-            string caption = "Elite FIP Server Settings";
-            MessageBoxButton button = MessageBoxButton.YesNo;
-            MessageBoxImage icon = MessageBoxImage.Warning;
-            MessageBoxResult result;
-
-            result = MessageBox.Show(messageBoxText, caption, button, icon, MessageBoxResult.Yes);
-            if (result == MessageBoxResult.Yes) {
-                refreshSettingsTab();
-            }
-
-        }
-        private void CmdsaveSettings_onClick(object sender, RoutedEventArgs e) {
-            saveSettings();
         }
 
         private void HandleCoreServerStateChange(object sender, RunState newState) {
             Dispatcher.Invoke(new Action(() => setStatusImage(imgCoreServerStatus, newState)));
         }
 
-        private void HandlePanelServerStateChange(object sender, RunState newState) {
-            
-            Dispatcher.Invoke(new Action(() => setStatusImage(imgPanelServerStatus, newState)));
-            Dispatcher.Invoke(new Action(() => setButtonText(cmdPanelServer, newState)));
-            PanelServerActive = newState == RunState.Started ? true : false;            
-        }
 
-        public void HandleMatricIntegrationStateChange (object sender, RunState newState) {
-            Dispatcher.Invoke(new Action(() => setStatusImage(imgMatricStatus, newState)));
-            Dispatcher.Invoke(new Action(() => setButtonText(cmdMatric, newState)));
-            MatricIntegrationActive = newState == RunState.Started ? true : false;
+        public void HandleEDCPStateChange(object sender, RunState newState)
+        {
+            Dispatcher.Invoke(new Action(() => setStatusImage(imgEDCPStatus, newState)));
+            Dispatcher.Invoke(new Action(() => setButtonText(cmdEDCP, newState)));
+            EDCPActive = newState == RunState.Started ? true : false;
         }
 
         public void updateInfoText(string newInfoText) {
@@ -182,8 +131,12 @@ namespace EliteFIPServer {
             }
         }
 
-        private void mainTabMenu_SelectionChanged(object sender, SelectionChangedEventArgs e) {
-
+        private void chkEnableLog_Checked(object sender, RoutedEventArgs e)
+        {
+            Log.Instance.Info("Saving settings");
+            Properties.Settings.Default.EnableLog = (bool)chkEnableLog.IsChecked;
+            Properties.Settings.Default.Save();
+            Log.LogEnabled(Properties.Settings.Default.EnableLog);
         }
     }
 }
