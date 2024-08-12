@@ -2,6 +2,7 @@
 using EliteAPI.Abstractions.Events;
 using EliteAPI.Events;
 using EliteAPI.Status.Ship;
+using EliteAPI.Status.Ship.Events;
 using EliteFIPServer.Logging;
 using Microsoft.Win32;
 using RJCP.IO.Ports;
@@ -23,8 +24,8 @@ namespace EliteFIPServer
         private string info = "";
 
         // Flash Worker
-        private CancellationTokenSource FlashWorkerCTS;
-        private Task FlashWorkerTask;
+        private CancellationTokenSource WorkerCTS;
+        private Task WorkerTask;
 
         // Data variables
         private double fuelCapacity = 0;
@@ -205,10 +206,10 @@ namespace EliteFIPServer
 
             // Start Matric Flash Thread
             Log.Instance.Info("Starting Flash Thread");
-            FlashWorkerCTS = new CancellationTokenSource();
-            FlashWorkerTask = new Task(new Action(FlashWorkerThread), FlashWorkerCTS.Token);
-            FlashWorkerTask.ContinueWith(FlashWorkerThreadEnded);
-            FlashWorkerTask.Start();
+            WorkerCTS = new CancellationTokenSource();
+            WorkerTask = new Task(new Action(WorkerThread), WorkerCTS.Token);
+            WorkerTask.ContinueWith(WorkerThreadEnded);
+            WorkerTask.Start();
             
             CurrentState.Set(RunState.Started);
         }
@@ -220,8 +221,8 @@ namespace EliteFIPServer
             {
                 CurrentState.Set(RunState.Stopping);
                 ClosePort();
-                FlashWorkerCTS?.Cancel();
-                FlashWorkerTask?.Wait();
+                WorkerCTS?.Cancel();
+                WorkerTask?.Wait();
             }
             CurrentState.Set(RunState.Stopped);
         }
@@ -255,56 +256,55 @@ namespace EliteFIPServer
             {
                 if (evt is StatusEvent)
                 {
-                    StatusEvent currentStatus = (StatusEvent)evt;
+                    var data = (StatusEvent)evt;
                     Log.Instance.Info(JsonSerializer.Serialize(evt));
-                    UpdateStatus(currentStatus);
-                    UpdateInfo(currentStatus);
-                    updateLastEventUpdateTimeStamp(currentStatus.Timestamp);
+                    UpdateStatus(data);
+                    UpdateInfo(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
                 }
                 else if (evt is ShipTargetedEvent)
                 {
-                    ShipTargetedEvent currentTarget = (ShipTargetedEvent)evt;
-                    UpdateTarget(currentTarget);
-                    updateLastEventUpdateTimeStamp(currentTarget.Timestamp);
+                    var data = (ShipTargetedEvent)evt;
+                    UpdateTarget(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
                 }
-                //else if (eventType == GameEventType.DockingGranted)
-                //{
-                //    DockingGrantedData currentDockingGranted = gameData as DockingGrantedData;
-                //    UpdateLanding(currentDockingGranted, null, null, null, null);
-                //    updateLastEventUpdateTimeStamp(currentDockingGranted.Timestamp);
-                //}
-                //else if (eventType == GameEventType.DockingDenied)
-                //{
-                //    DockingDeniedData currentDockingDenied = gameData as DockingDeniedData;
-                //    UpdateLanding(null, currentDockingDenied, null, null, null);
-                //    updateLastEventUpdateTimeStamp(currentDockingDenied.Timestamp);
-                //}
-                //else if (eventType == GameEventType.DockingTimeout)
-                //{
-                //    DockingTimeoutData currentDockingTimeout = gameData as DockingTimeoutData;
-                //    UpdateLanding(null, null, currentDockingTimeout, null, null);
-                //    updateLastEventUpdateTimeStamp(currentDockingTimeout.Timestamp);
-                //}
-                //else if (eventType == GameEventType.DockingCancelled)
-                //{
-                //    DockingCancelledData currentDockingCancelled = gameData as DockingCancelledData;
-                //    UpdateLanding(null, null, null, currentDockingCancelled, null);
-                //    updateLastEventUpdateTimeStamp(currentDockingCancelled.Timestamp);
-                //}
+                else if (evt is DockingGrantedEvent)
+                {
+                    var data = (DockingGrantedEvent)evt;
+                    SendDockingGrantedData(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
+                }
+                else if (evt is DockingDeniedEvent)
+                {
+                    var data = (DockingDeniedEvent)evt;
+                    SendDockingDeniedData(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
+                }
+                else if (evt is DockingTimeoutEvent)
+                {
+                    var data = (DockingTimeoutEvent)evt;
+                    SendDockingTimeoutData(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
+                }
+                else if (evt is DockingCancelledEvent)
+                {
+                    var data = (DockingCancelledEvent)evt;
+                    SendDockingCancelledData(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
+                }
                 else if (evt is LocationData)
                 {
                     currentLocation = (LocationData)evt;
-                    UpdateLanding(null, null, null, null, currentLocation);
                     ardSendLocation(currentLocation);
                     SendNavData();
                     updateLastEventUpdateTimeStamp(currentLocation.Timestamp);
                 }
                 else if (evt is LoadGameEvent)
                 {
-                    LoadGameEvent currentLoadGameData = (LoadGameEvent)evt;
-                    UpdateMaxFuelData(currentLoadGameData, null, null, null);                    
-                    UpdateGameInfo(currentLoadGameData);
-                    updateLastEventUpdateTimeStamp(currentLoadGameData.Timestamp);
+                    var data = (LoadGameEvent)evt;
+                    UpdateMaxFuelData(data, null, null, null);                    
+                    UpdateGameInfo(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
                 }
                 
                 //else if (eventType == GameEventType.RefuelAll)
@@ -345,36 +345,86 @@ namespace EliteFIPServer
                 //}
                 else if (evt is LoadoutEvent)
                 {
-                    LoadoutEvent loadoutData = (LoadoutEvent)evt;
+                    var data = (LoadoutEvent)evt;
                     //Log.Instance.Info($"New loadout data IsHot : {loadoutData.IsHot}");
                     //foreach (var module in loadoutData.Modules)
                     //{
                     //    Log.Instance.Info($"Module {module.Item} : ammo in clip={module.AmmoInClip}, ammo in hopper={module.AmmoInHopper}, isOn={module.IsOn}, health={module.Health}, priority={module.Priority}, slot={module.Slot}");
                     //}
-                    SendLoadoutData(loadoutData);                    
+                    SendLoadoutData(data);                    
                 }
                 else if (evt is NavigationData)
                 {
-                    NavigationData navigationData = (NavigationData)evt;
+                    var data = (NavigationData)evt;
 //                    Log.Instance.Info($"Navigation data : {navigationData.NavRouteActive} / Last system reached : {navigationData.LastSystemReached}");
-                    foreach (var stop in navigationData.Stops)
-                    {
-//                        Log.Instance.Info($"Navstop : {stop.SystemName}");
-                    }
-                    currentNavData = navigationData;
+//                    foreach (var stop in navigationData.Stops)
+//                    {
+////                        Log.Instance.Info($"Navstop : {stop.SystemName}");
+//                    }
+                    currentNavData = data;
                     SendNavData();
                 }
                 else if (evt is ApproachBodyEvent)
                 {
-                    ApproachBodyEvent approachBodyData = (ApproachBodyEvent)evt;
-                    Log.Instance.Info($"Approach Body data : {approachBodyData.StarSystem} / {approachBodyData.Body}");
-                    SendApproachBodyData(approachBodyData);
+                    var data = (ApproachBodyEvent)evt;
+                    Log.Instance.Info($"Approach Body data : {data.StarSystem} / {data.Body}");
+                    SendApproachBodyData(data);
+                }
+                else if (evt is PipsStatusEvent)
+                {
+                    var data = (PipsStatusEvent)evt;
+                    sendStrings(
+                        ["A",
+                "** Pips event",
+                "",
+                $"{data.Value.System} / {data.Value.Engines} / {data.Value.Weapons}"
+                        ]);
                 }
                 else if (evt is JumpData)
                 {
 //                    Log.Instance.Info("Jump data : " + JsonSerializer.Serialize(evt));
                 }
             }
+        }
+
+        private void SendDockingCancelledData(DockingCancelledEvent data)
+        {
+            sendStrings(
+                ["A",
+                "** Docking Cancelled",
+                "",
+                ""
+                ]);
+        }
+
+        private void SendDockingTimeoutData(DockingTimeoutEvent data)
+        {
+            sendStrings(
+                ["A",
+                "** Docking Timeout",
+                "",
+                ""
+                ]);
+        }
+
+        private void SendDockingDeniedData(DockingDeniedEvent data)
+        {
+            sendStrings(
+                ["A",
+                "** Docking denied",
+                "",
+                data.Reason
+                ]);
+        }
+
+        private void SendDockingGrantedData(DockingGrantedEvent data)
+        {
+            sendStrings(
+                ["A",
+                "** Docking granted",
+                "",
+                $"Landing pad {data.LandingPad}"
+                ]);
         }
 
         private void SendLoadoutData(LoadoutEvent loadoutData)
@@ -499,36 +549,36 @@ namespace EliteFIPServer
         {
             sendStrings(
                 ["A",
-                "Approaching",
+                "**Approaching**",
                 approachBodyData.StarSystem,
                 approachBodyData.Body
                 ]);
         }
 
-        private void FlashWorkerThread()
+        private void WorkerThread()
         {
-            Log.Instance.Info("Matric Flash Worker Thread started");
+            Log.Instance.Info("Worker Thread started");
 
-            CancellationToken token = FlashWorkerCTS.Token;
+            CancellationToken token = WorkerCTS.Token;
             while (token.IsCancellationRequested == false)
             {
 
                 Thread.Sleep(500);
             }
-            Log.Instance.Info("Matric Flash Worker Thread ending");
+            Log.Instance.Info("Worker Thread ending");
         }
 
-        private void FlashWorkerThreadEnded(Task task)
+        private void WorkerThreadEnded(Task task)
         {
             if (task.Exception != null)
             {
-                Log.Instance.Info("Flash Worker Thread Exception: {exception}", task.Exception.ToString());
+                Log.Instance.Info("Worker Thread Exception: {exception}", task.Exception.ToString());
             }
             if (CurrentState.State != RunState.Stopping)
             {
                 Stop();
             }
-            Log.Instance.Info("Flash Worker Thread ended");
+            Log.Instance.Info("Worker Thread ended");
         }
 
 
@@ -619,7 +669,9 @@ namespace EliteFIPServer
 
                 ardPort.Write("F");
                 ardPort.Write(BitConverter.GetBytes(flag1), 0, 4);
-                ardPort.Write(BitConverter.GetBytes(flag2), 0, 4);
+                ardPort.Write(BitConverter.GetBytes(flag2), 0, 4);                
+                ardPort.Write(BitConverter.GetBytes((uint)currentStatus.GuiFocus), 0, 4);
+                //currentStatus.FireGroup
                 sendString(currentStatus.LegalState.ToString() ?? "");
             }
         }
@@ -645,25 +697,6 @@ namespace EliteFIPServer
 
         public void UpdateTarget(ShipTargetedEvent currentTarget)
         {
-        }
-
-        public void UpdateLanding(DockingGrantedEvent? currentDockingGranted, DockingDeniedEvent? currentDockingDenied, DockingTimeoutEvent? currentDockingTimeout, DockingCancelledEvent? currentDockingCancelled, LocationData currentLocation)
-        {
-
-            if ((currentDockingGranted != null && currentDockingGranted.Value.Timestamp > lastEventUpdate) ||
-                (currentDockingDenied != null && currentDockingDenied.Value.Timestamp > lastEventUpdate) ||
-                (currentDockingTimeout != null && currentDockingTimeout.Value.Timestamp > lastEventUpdate) ||
-                (currentDockingCancelled != null && currentDockingCancelled.Value.Timestamp > lastEventUpdate) ||
-                currentLocation != null)
-            {
-
-                if (currentLocation != null && currentLocation.Timestamp > lastEventUpdate)
-                {
-                    ardSendLocation(currentLocation);
-                    Log.Instance.Info("Location Event triggered. Data: " + currentLocation.ToString());
-                }
-            }
-
         }
 
         public void UpdateMaxFuelData(LoadGameEvent? currentLoadGameData, LoadoutEvent? currentLoadoutData, RefuelAllEvent? currentRefuelAllData, ReservoirReplenishedEvent? currentReservoirReplenishedData)
