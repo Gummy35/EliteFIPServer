@@ -249,6 +249,20 @@ namespace EliteFIPServer
             }
         }
 
+        public void AlertMessage(string title, string l1 = "", string l2 = "", string l3 = "", uint duration = 10)
+        {
+            ardPort.Write("A");
+            ardPort.Write(BitConverter.GetBytes(duration), 0, 4);
+            sendStrings([title, l1, l2, l3]);
+        }
+
+        public void ClearAlert()
+        {
+            ardPort.Write("A");
+            ardPort.Write(BitConverter.GetBytes(0), 0, 4);
+            sendStrings(["", "", "", ""]);
+        }
+
         public void UpdateGameState(IEvent evt)
         {
             // Only update if EDCP Integration is running
@@ -290,6 +304,12 @@ namespace EliteFIPServer
                 {
                     var data = (DockingCancelledEvent)evt;
                     SendDockingCancelledData(data);
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
+                }
+                else if (evt is DockedEvent)
+                {
+                    var data = (DockedEvent)evt;
+                    SendDockedData(data);
                     updateLastEventUpdateTimeStamp(evt.Timestamp);
                 }
                 else if (evt is LocationData)
@@ -370,16 +390,9 @@ namespace EliteFIPServer
                     Log.Instance.Info($"Approach Body data : {data.StarSystem} / {data.Body}");
                     SendApproachBodyData(data);
                 }
-                else if (evt is PipsStatusEvent)
-                {
-                    var data = (PipsStatusEvent)evt;
-                    sendStrings(
-                        ["A",
-                "** Pips event",
-                "",
-                $"{data.Value.System} / {data.Value.Engines} / {data.Value.Weapons}"
-                        ]);
-                }
+                //else if (evt is PipsStatusEvent)
+                //{
+                //}
                 else if (evt is JumpData)
                 {
 //                    Log.Instance.Info("Jump data : " + JsonSerializer.Serialize(evt));
@@ -387,44 +400,33 @@ namespace EliteFIPServer
             }
         }
 
+        private void SendDockedData(DockedEvent data)
+        {
+            AlertMessage("Docking complete", duration: 5);
+        }
+
         private void SendDockingCancelledData(DockingCancelledEvent data)
         {
-            sendStrings(
-                ["A",
-                "** Docking Cancelled",
-                "",
-                ""
-                ]);
+            AlertMessage("** Docking Cancelled");
         }
 
         private void SendDockingTimeoutData(DockingTimeoutEvent data)
         {
-            sendStrings(
-                ["A",
-                "** Docking Timeout",
-                "",
-                ""
-                ]);
+            AlertMessage("** Docking Timeout");
         }
 
         private void SendDockingDeniedData(DockingDeniedEvent data)
         {
-            sendStrings(
-                ["A",
-                "** Docking denied",
+            AlertMessage("** Docking denied",
                 "",
-                data.Reason
-                ]);
+                data.Reason);
         }
 
         private void SendDockingGrantedData(DockingGrantedEvent data)
         {
-            sendStrings(
-                ["A",
-                "** Docking granted",
+            AlertMessage("** Docking granted",
                 "",
-                $"Landing pad {data.LandingPad}"
-                ]);
+                $"Landing pad {data.LandingPad}", duration: 600);
         }
 
         private void SendLoadoutData(LoadoutEvent loadoutData)
@@ -520,6 +522,13 @@ namespace EliteFIPServer
                     if (module.Health > 0)
                         flag2 += 0x00200000;
                 }
+                else if (module.Item.Contains("_detailedsurfacescanner_"))
+                {
+                    if (module.IsOn)
+                        flag2 += 0x01000000;
+                    if (module.Health > 0)
+                        flag2 += 0x02000000;
+                }
             }
             ardPort.Write("M");
             ardPort.Write(BitConverter.GetBytes(flag1), 0, 4);
@@ -547,12 +556,10 @@ namespace EliteFIPServer
 
         private void SendApproachBodyData(ApproachBodyEvent approachBodyData)
         {
-            sendStrings(
-                ["A",
-                "**Approaching**",
+            AlertMessage("**Approaching**",
+                "",
                 approachBodyData.StarSystem,
-                approachBodyData.Body
-                ]);
+                approachBodyData.Body);
         }
 
         private void WorkerThread()

@@ -239,31 +239,6 @@ namespace EliteFIPServer {
 
         // Game State Provider
         private IEliteDangerousApi EliteAPI;
-
-        // Current Game State Information
-        //private Dictionary<Type, IEvent> currentData = new Dictionary<Type, IEvent>();
-
-        //private EliteAPI.Status.Ship.StatusEvent? currentStatus = null;
-        //private ShipTargetedData currentTarget = new ShipTargetedData();
-        //private EliteAPI.Events.LocationEvent? currentLocation = null;
-        //private NavigationData currentNavRoute = new NavigationData();
-        //private NavigationData previousNavRoute = new NavigationData();
-        //private JumpData currentJump = new JumpData();
-        //private DockingGrantedData currentDockingGranted = new DockingGrantedData();
-        //private DockingDeniedData currentDockingDenied = new DockingDeniedData();
-        //private DockingTimeoutData currentDockingTimeout = new DockingTimeoutData();
-        //private DockingCancelledData currentDockingCancelled = new DockingCancelledData();
-        //private LoadGameEvent? currentLoadGame = null;
-        //private LoadoutEvent? currentLoadout = null;
-        //private RefuelAllEvent? currentRefuelAll = null;
-        //private RefuelPartialEvent? currentRefuelPartial = null;
-        //private ReservoirReplenishedData currentReservoirReplenished = new ReservoirReplenishedData();
-        //private FuelScoopData currentFuelScoop = new FuelScoopData();
-        //private ShipyardBuyEvent? currentShipyardBuy = null;
-        //private ShipyardNewEvent? currentShipyardNew = null;
-        //private ShipyardSwapEvent? currentShipyardSwap = null;
-        //private ApproachBodyData currentApproachBody = new ApproachBodyData();
-        
         public ApiEventDataManager currentData = new ApiEventDataManager();
         private Dictionary<Type, ApiEventHandler> handlers = new Dictionary<Type, ApiEventHandler>();
 
@@ -285,7 +260,7 @@ namespace EliteFIPServer {
             handlers.Add(typeof(DockedEvent), HandleDockedEvent);
             handlers.Add(typeof(UndockedEvent), HandleUndockedEvent);
             EliteAPI.Events.OnAny(HandleEliteApiEvent);
-           // EliteAPI.Events.OnAnyJson(HandleEliteApiEventJson);
+            // EliteAPI.Events.OnAnyJson(HandleEliteApiEventJson);
         }
 
         private void HandleEliteApiEventJson(string json, EventContext context)
