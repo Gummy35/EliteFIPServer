@@ -592,95 +592,70 @@ namespace EliteFIPServer
         public void UpdateStatus(StatusEvent currentStatus)
         {
 
-            //if (currentStatus != null)
-            {
-                //Log.Instance.Info("Setting state using: {gamestate}", System.Text.Json.JsonSerializer.Serialize(currentStatus));
-
-                ////Handle Fuel Stat calculation
-                ////If Reset should be triggered, set Max values based of current values (should show the correct max at that point)
-                //if (this.resetMaxFuel)
-                //{
-                //    this.fuelCapacity = currentStatus.FuelMain;
-                //    this.fuelReserveMax = currentStatus.FuelReservoir;
-                //    this.resetMaxFuel = false;
-                //}
-                //if (this.resetMaxReservoirFuel)
-                //{
-                //    this.fuelReserveMax = currentStatus.FuelReservoir;
-                //    this.resetMaxReservoirFuel = false;
-                //}
-
-                ////Update Fuel data variables
-                //this.fuelCurrent = currentStatus.FuelMain;
-                //this.fuelReserve = currentStatus.FuelReservoir;
-
-                //Log.Instance.Info("Current Main Fuel Percentage: " + calculatePercentageValue(currentStatus.FuelMain, this.fuelCapacity) + "%");
-                //Log.Instance.Info("Current Fuel Reservoir Percentage: " + calculatePercentageValue(currentStatus.FuelReservoir, this.fuelReserveMax) + "%");
-
-                // Flags
-                UInt32 flag1 = 0;
-                if (currentStatus.Docked) flag1 += 0x00000001;
-                if (currentStatus.Landed) flag1 += 0x00000002;
-                if (currentStatus.Gear) flag1 += 0x00000004;
+            UInt32 flag1 = 0;
+            if (currentStatus.Docked) flag1 += 0x00000001;
+            if (currentStatus.Landed) flag1 += 0x00000002;
+            if (currentStatus.Gear) flag1 += 0x00000004;
 
 
-                if (currentStatus.Shields) flag1 += 0x00000008;
-                if (currentStatus.Supercruise) flag1 += 0x00000010;
-                if (!currentStatus.FlightAssist) flag1 += 0x00000020;
-                if (currentStatus.Hardpoints) flag1 += 0x00000040;
-                if (currentStatus.Winging) flag1 += 0x00000080;
-                if (currentStatus.Lights) flag1 += 0x00000100;
-                if (currentStatus.CargoScoop) flag1 += 0x00000200;
-                if (currentStatus.SilentRunning) flag1 += 0x00000400;
-                if (currentStatus.Scooping) flag1 += 0x00000800;
-                if (currentStatus.SrvHandbrake) flag1 += 0x00001000;
-                if (currentStatus.SrvTurret) flag1 += 0x00002000;
-                if (currentStatus.SrvNearShip) flag1 += 0x00004000;
-                if (currentStatus.SrvDriveAssist) flag1 += 0x00008000;
-                if (currentStatus.MassLocked) flag1 += 0x00010000;
-                if (currentStatus.FsdCharging) flag1 += 0x00020000;
-                if (currentStatus.FsdCooldown) flag1 += 0x00040000;
-                if (currentStatus.LowFuel) flag1 += 0x00080000;
-                if (currentStatus.Overheating) flag1 += 0x00100000;
-                if (currentStatus.HasLatLong) flag1 += 0x00200000;
-                if (currentStatus.InDanger) flag1 += 0x00400000;
-                if (currentStatus.InInterdiction) flag1 += 0x00800000;
-                if (currentStatus.InMothership) flag1 += 0x01000000;
-                if (currentStatus.InFighter) flag1 += 0x02000000;
-                if (currentStatus.InSrv) flag1 += 0x04000000;
-                if (currentStatus.AnalysisMode) flag1 += 0x08000000;
-                if (currentStatus.NightVision) flag1 += 0x10000000;
-                if (currentStatus.AltitudeFromAverageRadius) flag1 += 0x20000000;
-                if (currentStatus.FsdJump) flag1 += 0x40000000;
-                if (currentStatus.SrvHighBeam) flag1 += 0x80000000;
+            if (currentStatus.Shields) flag1 += 0x00000008;
+            if (currentStatus.Supercruise) flag1 += 0x00000010;
+            if (!currentStatus.FlightAssist) flag1 += 0x00000020;
+            if (currentStatus.Hardpoints) flag1 += 0x00000040;
+            if (currentStatus.Winging) flag1 += 0x00000080;
+            if (currentStatus.Lights) flag1 += 0x00000100;
+            if (currentStatus.CargoScoop) flag1 += 0x00000200;
+            if (currentStatus.SilentRunning) flag1 += 0x00000400;
+            if (currentStatus.Scooping) flag1 += 0x00000800;
+            if (currentStatus.SrvHandbrake) flag1 += 0x00001000;
+            if (currentStatus.SrvTurret) flag1 += 0x00002000;
+            if (currentStatus.SrvNearShip) flag1 += 0x00004000;
+            if (currentStatus.SrvDriveAssist) flag1 += 0x00008000;
+            if (currentStatus.MassLocked) flag1 += 0x00010000;
+            if (currentStatus.FsdCharging) flag1 += 0x00020000;
+            if (currentStatus.FsdCooldown) flag1 += 0x00040000;
+            if (currentStatus.LowFuel) flag1 += 0x00080000;
+            if (currentStatus.Overheating) flag1 += 0x00100000;
+            if (currentStatus.HasLatLong) flag1 += 0x00200000;
+            if (currentStatus.InDanger) flag1 += 0x00400000;
+            if (currentStatus.InInterdiction) flag1 += 0x00800000;
+            if (currentStatus.InMothership) flag1 += 0x01000000;
+            if (currentStatus.InFighter) flag1 += 0x02000000;
+            if (currentStatus.InSrv) flag1 += 0x04000000;
+            if (currentStatus.AnalysisMode) flag1 += 0x08000000;
+            if (currentStatus.NightVision) flag1 += 0x10000000;
+            if (currentStatus.AltitudeFromAverageRadius) flag1 += 0x20000000;
+            if (currentStatus.FsdJump) flag1 += 0x40000000;
+            if (currentStatus.SrvHighBeam) flag1 += 0x80000000;
 
-                UInt32 flag2 = 0;
-                // Flags 2
-                if (currentStatus.OnFoot) flag2 += 0x00000001;
-                if (currentStatus.InTaxi) flag2 += 0x00000002;
-                if (currentStatus.InMultiCrew) flag2 += 0x00000004;
-                if (currentStatus.OnFootInStation) flag2 += 0x00000008;
-                if (currentStatus.OnFootOnPlanet) flag2 += 0x00000010;
-                if (currentStatus.AimDownSight) flag2 += 0x00000020;
-                if (currentStatus.LowOxygen) flag2 += 0x00000040;
-                if (currentStatus.LowHealth) flag2 += 0x00000080;
-                if (currentStatus.Cold) flag2 += 0x00000100;
-                if (currentStatus.Hot) flag2 += 0x00000200;
-                if (currentStatus.VeryCold) flag2 += 0x00000400;
-                if (currentStatus.VeryHot) flag2 += 0x00000800;
-                if (currentStatus.Gliding) flag2 += 0x00001000;
-                if (currentStatus.OnFootInHangar) flag2 += 0x00002000;
-                if (currentStatus.OnFootInSocialSpace) flag2 += 0x00004000;
-                if (currentStatus.OnFootInExterior) flag2 += 0x00008000;
-                if (currentStatus.BreathableAtmosphere) flag2 += 0x00010000;
+            UInt32 flag2 = 0;
+            // Flags 2
+            if (currentStatus.OnFoot) flag2 += 0x00000001;
+            if (currentStatus.InTaxi) flag2 += 0x00000002;
+            if (currentStatus.InMultiCrew) flag2 += 0x00000004;
+            if (currentStatus.OnFootInStation) flag2 += 0x00000008;
+            if (currentStatus.OnFootOnPlanet) flag2 += 0x00000010;
+            if (currentStatus.AimDownSight) flag2 += 0x00000020;
+            if (currentStatus.LowOxygen) flag2 += 0x00000040;
+            if (currentStatus.LowHealth) flag2 += 0x00000080;
+            if (currentStatus.Cold) flag2 += 0x00000100;
+            if (currentStatus.Hot) flag2 += 0x00000200;
+            if (currentStatus.VeryCold) flag2 += 0x00000400;
+            if (currentStatus.VeryHot) flag2 += 0x00000800;
+            if (currentStatus.Gliding) flag2 += 0x00001000;
+            if (currentStatus.OnFootInHangar) flag2 += 0x00002000;
+            if (currentStatus.OnFootInSocialSpace) flag2 += 0x00004000;
+            if (currentStatus.OnFootInExterior) flag2 += 0x00008000;
+            if (currentStatus.BreathableAtmosphere) flag2 += 0x00010000;
 
-                ardPort.Write("F");
-                ardPort.Write(BitConverter.GetBytes(flag1), 0, 4);
-                ardPort.Write(BitConverter.GetBytes(flag2), 0, 4);                
-                ardPort.Write(BitConverter.GetBytes((uint)currentStatus.GuiFocus), 0, 4);
-                //currentStatus.FireGroup
-                sendString(currentStatus.LegalState.ToString() ?? "");
-            }
+            ardPort.Write("F");
+            ardPort.Write(BitConverter.GetBytes(flag1), 0, 4);
+            ardPort.Write(BitConverter.GetBytes(flag2), 0, 4);
+            ardPort.Write([
+                (byte)currentStatus.GuiFocus,
+                (byte)currentStatus.FireGroup
+            ], 0, 2);
+            sendString(currentStatus.LegalState.ToString() ?? "");
         }
 
         public void UpdateGameInfo(LoadGameEvent currentLoadGameData)
