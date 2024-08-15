@@ -397,7 +397,18 @@ namespace EliteFIPServer
                 {
 //                    Log.Instance.Info("Jump data : " + JsonSerializer.Serialize(evt));
                 }
+                else if (evt is ShutdownEvent)
+                {
+                    var data = (ShutdownEvent)evt;
+                    Log.Instance.Info("Shutdown");
+                    SendShutdown(data);
+                }
             }
+        }
+
+        private void SendShutdown(ShutdownEvent data)
+        {
+            this.ardPort.Write("X");
         }
 
         private void SendDockedData(DockedEvent data)
@@ -796,7 +807,7 @@ namespace EliteFIPServer
             for (int i = 0; i < strings.Length; i++)
             {
                 var s = RemoveDiacritics(strings[i]);
-                r += s.Substring(0, Math.Min(s.Length, maxLength)).PadRight(1);
+                r += s.Substring(0, Math.Min(s.Length, maxLength));
                 if (i < strings.Length - 1) r += "\t";
             }
             ardPort.Write(r + "\0");
