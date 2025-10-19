@@ -2,20 +2,33 @@
 using EliteAPI.Abstractions.Events;
 using EliteAPI.Events;
 using EliteAPI.Status.Ship;
-using EliteAPI.Status.Ship.Events;
 using EliteFIPServer.Logging;
 using Microsoft.Win32;
 using RJCP.IO.Ports;
 using System.Globalization;
-using System.Reflection;
 using System.Text;
-using System.Text.Json;
+
 
 namespace EliteFIPServer
 {
+    public static class SerialCommands
+    {
+        public const char Silent = 'S';
+        public const char Hello = 'H';
+        public const char Verbose = 'V';
+        public const char SendInfos = 'I';
+        public const char Location = 'l';
+        public const char GameInfos = 'G';
+        public const char GameFlags = 'F';
+        public const char LoadOut = 'M';
+        public const char NavRoute = 'N';
+        public const char Alerts = 'A';
+        public const char Shutdown = 'X';
+    }
     public class EDCPClient
     {
-
+        public EventHandler<ExobiologyData> exoDataChanged;
+        public EventHandler<LocationData> locationChanged;
         public ComponentState CurrentState { get; private set; } = new ComponentState();
 
         private static DateTime lastEventUpdate = DateTime.UtcNow;
@@ -40,6 +53,7 @@ namespace EliteFIPServer
         private RegistryKey rkCurrentUser;
         private NavigationData currentNavData = null;
         private LocationData currentLocation = null;
+
         private string commanderName = "";
         private string shipName = "";
 
@@ -59,12 +73,12 @@ namespace EliteFIPServer
                 if (portName == null)
                     registryKey.DeleteValue("LastKnownPort");
                 else
-                    registryKey.SetValue("LastKnownPort", (object)portName);
+                    registryKey.SetValue("LastKnownPort", portName);
 
                 registryKey.Close();
                 this.rkCurrentUser.Close();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
             }
         }
@@ -79,7 +93,7 @@ namespace EliteFIPServer
                 if (registryKey == null)
                 {
                     RegistryKey subKey = this.rkCurrentUser.CreateSubKey("Software\\EDControlPanel");
-                    subKey.SetValue("LastKnownPort", (object)"");
+                    subKey.SetValue("LastKnownPort", "");
                     subKey.Close();
                 }
                 else
@@ -88,11 +102,26 @@ namespace EliteFIPServer
                 }
                 this.rkCurrentUser.Close();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
             }
 
             return result;
+        }
+
+        public void sendArd(string s)
+        {
+
+        }
+
+        public void sendArd(char c)
+        {
+            this.ardPort.Write("" + c);
+        }
+
+        public void sendArd(uint u)
+        {
+            ardPort.Write(BitConverter.GetBytes(u), 0, 4);
         }
 
         public bool OpenPort(string portName)
@@ -112,7 +141,7 @@ namespace EliteFIPServer
                 Thread.Sleep(100);
                 try
                 {
-                    this.ardPort.Write("I");
+                    sendArd(SerialCommands.SendInfos);
                     var s = this.ardPort.ReadLine();
                     if (!s.Contains("EDControlPanel"))
                     {
@@ -120,7 +149,7 @@ namespace EliteFIPServer
                         return false;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     return false;
                 }
@@ -149,7 +178,7 @@ namespace EliteFIPServer
                         this.ardPort.Close();
                         Thread.Sleep(1000);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                     }
                 }
@@ -161,7 +190,7 @@ namespace EliteFIPServer
                         this.ardPort = null;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                 }
             }
@@ -210,7 +239,7 @@ namespace EliteFIPServer
             WorkerTask = new Task(new Action(WorkerThread), WorkerCTS.Token);
             WorkerTask.ContinueWith(WorkerThreadEnded);
             WorkerTask.Start();
-            
+
             CurrentState.Set(RunState.Started);
         }
 
@@ -234,7 +263,7 @@ namespace EliteFIPServer
                 var idx = currentNavData.Stops.FindIndex(s => s.SystemId == currentLocation.SystemId);
                 if (idx >= 0)
                 {
-                    List<string> stops = ["N"];
+                    List<string> stops = ["" + SerialCommands.NavRoute];
                     for (int i = idx + 1; i < Math.Min(idx + 4, currentNavData.Stops.Count); i++)
                     {
                         stops.Add(currentNavData.Stops[i].SystemName);
@@ -245,22 +274,35 @@ namespace EliteFIPServer
             }
             else
             {
-                sendStrings(["N", "", "", ""]);
+                sendStrings(["" + SerialCommands.NavRoute, "", "", ""]);
             }
+        }
+
+        private string DecodeArdNavRoute(string[] strArray)
+        {
+            if (strArray.Length < 4) return $"Ack Navroute : Expected 4 parameters, got {strArray.Length}";
+            return $"Ack Navroute : System 1={strArray[1]} / System 2={strArray[2]} / System 3={strArray[3]}";
         }
 
         public void AlertMessage(string title, string l1 = "", string l2 = "", string l3 = "", uint duration = 10)
         {
-            ardPort.Write("A");
+            sendArd(SerialCommands.Alerts);
             ardPort.Write(BitConverter.GetBytes(duration), 0, 4);
             sendStrings([title, l1, l2, l3]);
         }
 
         public void ClearAlert()
         {
-            ardPort.Write("A");
+            sendArd(SerialCommands.Alerts);
             ardPort.Write(BitConverter.GetBytes(0), 0, 4);
             sendStrings(["", "", "", ""]);
+        }
+
+        private string DecodeArdAlert(string[] strArray)
+        {
+            if (strArray.Length < 6) return $"Ack Alert : Expected 6 parameters, got {strArray.Length}";
+            if (!int.TryParse(strArray[1], out _)) return $"Ack Alert : Parameter 'Duration' must be an int, got {strArray[1]}";
+            return $"Ack Alert : Duration={strArray[1]} / Title={strArray[2]} / Line 1={strArray[3]} / Line 2={strArray[4]} / Line 3={strArray[5]} ";
         }
 
         public void UpdateGameState(IEvent evt)
@@ -271,7 +313,7 @@ namespace EliteFIPServer
                 if (evt is StatusEvent)
                 {
                     var data = (StatusEvent)evt;
-                    Log.Instance.Info(JsonSerializer.Serialize(evt));
+                    Log.Instance.Info(System.Text.Json.JsonSerializer.Serialize(evt));
                     UpdateStatus(data);
                     UpdateInfo(data);
                     updateLastEventUpdateTimeStamp(evt.Timestamp);
@@ -317,16 +359,26 @@ namespace EliteFIPServer
                     currentLocation = (LocationData)evt;
                     ardSendLocation(currentLocation);
                     SendNavData();
+                    locationChanged?.Invoke(this, currentLocation.DeepCopy());
                     updateLastEventUpdateTimeStamp(currentLocation.Timestamp);
                 }
                 else if (evt is LoadGameEvent)
                 {
                     var data = (LoadGameEvent)evt;
-                    UpdateMaxFuelData(data, null, null, null);                    
+                    UpdateMaxFuelData(data, null, null, null);
                     UpdateGameInfo(data);
                     updateLastEventUpdateTimeStamp(evt.Timestamp);
                 }
-                
+                else if (evt is ExobiologyData)
+                {
+                    var data = (ExobiologyData)evt;
+                    SendExoData(data);
+                    exoDataChanged?.Invoke(this, data.DeepCopy());
+
+                    updateLastEventUpdateTimeStamp(evt.Timestamp);
+                }
+
+
                 //else if (eventType == GameEventType.RefuelAll)
                 //{
                 //    RefuelAllData currentRefuelAllData = gameData as RefuelAllData;
@@ -371,16 +423,16 @@ namespace EliteFIPServer
                     //{
                     //    Log.Instance.Info($"Module {module.Item} : ammo in clip={module.AmmoInClip}, ammo in hopper={module.AmmoInHopper}, isOn={module.IsOn}, health={module.Health}, priority={module.Priority}, slot={module.Slot}");
                     //}
-                    SendLoadoutData(data);                    
+                    SendLoadoutData(data);
                 }
                 else if (evt is NavigationData)
                 {
                     var data = (NavigationData)evt;
-//                    Log.Instance.Info($"Navigation data : {navigationData.NavRouteActive} / Last system reached : {navigationData.LastSystemReached}");
-//                    foreach (var stop in navigationData.Stops)
-//                    {
-////                        Log.Instance.Info($"Navstop : {stop.SystemName}");
-//                    }
+                    //                    Log.Instance.Info($"Navigation data : {navigationData.NavRouteActive} / Last system reached : {navigationData.LastSystemReached}");
+                    //                    foreach (var stop in navigationData.Stops)
+                    //                    {
+                    ////                        Log.Instance.Info($"Navstop : {stop.SystemName}");
+                    //                    }
                     currentNavData = data;
                     SendNavData();
                 }
@@ -395,7 +447,7 @@ namespace EliteFIPServer
                 //}
                 else if (evt is JumpData)
                 {
-//                    Log.Instance.Info("Jump data : " + JsonSerializer.Serialize(evt));
+                    //                    Log.Instance.Info("Jump data : " + JsonSerializer.Serialize(evt));
                 }
                 else if (evt is ShutdownEvent)
                 {
@@ -408,7 +460,7 @@ namespace EliteFIPServer
 
         private void SendShutdown(ShutdownEvent data)
         {
-            this.ardPort.Write("X");
+            sendArd(SerialCommands.Shutdown);
         }
 
         private void SendDockedData(DockedEvent data)
@@ -541,9 +593,9 @@ namespace EliteFIPServer
                         flag2 += 0x02000000;
                 }
             }
-            ardPort.Write("M");
-            ardPort.Write(BitConverter.GetBytes(flag1), 0, 4);
-            ardPort.Write(BitConverter.GetBytes(flag2), 0, 4);
+            sendArd(SerialCommands.LoadOut);
+            sendArd(flag1);
+            sendArd(flag2);
             sendString("");
 
 
@@ -556,7 +608,7 @@ namespace EliteFIPServer
             {
                 shipName = tmpShipname;
                 sendStrings(
-                    ["G",
+                    ["" + SerialCommands.GameInfos,
                     commanderName,
                     shipName
                 ]);
@@ -565,6 +617,100 @@ namespace EliteFIPServer
 
         }
 
+        private string DecodeArdLoadOut(string[] strArray)
+        {
+            if (strArray.Length < 3) return $"Ack Loadout : Expected 3 parameters, got {strArray.Length}";
+            if (!uint.TryParse(strArray[1], out uint flag1) || !uint.TryParse(strArray[2], out uint flag2))
+                return $"Ack Loadout : Expected int parameters, got {strArray[1]} / {strArray[2]}";
+
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Ack Loadout:");
+            sb.Append("Chaff : ");
+            sb.Append((flag1 & 0x00000001) > 0 ? "ON" : "OFF");
+            sb.Append(", Ammo in clip: ");
+            sb.Append((flag1 & 0x00000002) > 0 ? "yes" : "no");
+            sb.Append(", Ammo in hopper: ");
+            sb.Append((flag1 & 0x00000004) > 0 ? "yes" : "no");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag1 & 0x00000008) > 0 ? "ok" : "0");
+
+            sb.Append("Heatsink : ");
+            sb.Append((flag1 & 0x00000010) > 0 ? "ON" : "OFF");
+            sb.Append(", Ammo in clip: ");
+            sb.Append((flag1 & 0x00000020) > 0 ? "yes" : "no");
+            sb.Append(", Ammo in hopper: ");
+            sb.Append((flag1 & 0x00000040) > 0 ? "yes" : "no");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag1 & 0x00000080) > 0 ? "ok" : "0");
+
+            sb.Append("Shield cell bank : ");
+            sb.Append((flag1 & 0x00000100) > 0 ? "ON" : "OFF");
+            sb.Append(", Ammo in clip: ");
+            sb.Append((flag1 & 0x00000200) > 0 ? "yes" : "no");
+            sb.Append(", Ammo in hopper: ");
+            sb.Append((flag1 & 0x00000400) > 0 ? "yes" : "no");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag1 & 0x00000800) > 0 ? "ok" : "0");
+
+            sb.Append("ECM : ");
+            sb.Append((flag1 & 0x00001000) > 0 ? "ON" : "OFF");
+            sb.Append(", Ammo in clip: ");
+            sb.Append((flag1 & 0x00002000) > 0 ? "yes" : "no");
+            sb.Append(", Ammo in hopper: ");
+            sb.Append((flag1 & 0x00004000) > 0 ? "yes" : "no");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag1 & 0x00008000) > 0 ? "ok" : "0");
+
+            sb.Append("Hyperdrive : ");
+            sb.Append((flag2 & 0x00000001) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x00000002) > 0 ? "ok" : "0");
+
+            sb.Append("Engine : ");
+            sb.Append((flag2 & 0x00000010) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x00000020) > 0 ? "ok" : "0");
+
+            sb.Append("Life support : ");
+            sb.Append((flag2 & 0x00000100) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x00000200) > 0 ? "ok" : "0");
+
+            sb.Append("Power distributor : ");
+            sb.Append((flag2 & 0x00001000) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x00002000) > 0 ? "ok" : "0");
+
+            sb.Append("Sensors : ");
+            sb.Append((flag2 & 0x00010000) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x00020000) > 0 ? "ok" : "0");
+
+            sb.Append("Shield Generator : ");
+            sb.Append((flag2 & 0x00100000) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x00200000) > 0 ? "ok" : "0");
+
+            sb.Append("Surface Scanner : ");
+            sb.Append((flag2 & 0x01000000) > 0 ? "ON" : "OFF");
+            sb.Append(", Health: ");
+            sb.AppendLine((flag2 & 0x02000000) > 0 ? "ok" : "0");
+
+            return sb.ToString();
+        }
+
+        private void SendExoData(ExobiologyData exoData)
+        {
+            if (exoData.Scans.ContainsKey(exoData.LastBodyId))
+            {
+                AlertMessage("//Exobiology",
+                   exoData.LastBodyName,
+                   exoData.Scans[exoData.LastBodyId][0].Name,
+                   exoData.Scans[exoData.LastBodyId][0].Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture),
+                   duration: 30);
+            }
+
+        }
         private void SendApproachBodyData(ApproachBodyEvent approachBodyData)
         {
             AlertMessage("**Approaching**",
@@ -590,7 +736,7 @@ namespace EliteFIPServer
         {
             if (task.Exception != null)
             {
-                Log.Instance.Info("Worker Thread Exception: {exception}", task.Exception.ToString());
+                Log.Instance.Info($"Worker Thread Exception: {task.Exception.ToString()}");
             }
             if (CurrentState.State != RunState.Stopping)
             {
@@ -659,15 +805,88 @@ namespace EliteFIPServer
             if (currentStatus.OnFootInExterior) flag2 += 0x00008000;
             if (currentStatus.BreathableAtmosphere) flag2 += 0x00010000;
 
-            ardPort.Write("F");
-            ardPort.Write(BitConverter.GetBytes(flag1), 0, 4);
-            ardPort.Write(BitConverter.GetBytes(flag2), 0, 4);
+            sendArd(SerialCommands.GameFlags);
+            sendArd(flag1);
+            sendArd(flag2);
             ardPort.Write([
                 (byte)currentStatus.GuiFocus,
                 (byte)currentStatus.FireGroup
             ], 0, 2);
             sendString(currentStatus.LegalState.ToString() ?? "");
         }
+
+        private string DecodeArdGameFlags(string[] strArray)
+        {
+            if (strArray.Length < 6) return $"Ack Game flags : Expected 6 parameters, got {strArray.Length}";
+            if (!uint.TryParse(strArray[1], out uint flag1) || !uint.TryParse(strArray[2], out uint flag2) || !uint.TryParse(strArray[3], out uint focus) || !uint.TryParse(strArray[4], out uint firegroup))
+                return $"Ack Game flags : Expected int parameters, got {strArray[1]} / {strArray[2]}";
+
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Ack game status flags :");
+            if ((flag1 & 0x00000001) > 0) sb.Append("Docked, ");
+            if ((flag1 & 0x00000002) > 0) sb.Append("Landed, ");
+            if ((flag1 & 0x00000004) > 0) sb.Append("Gear, ");
+            if ((flag1 & 0x00000008) > 0) sb.Append("Shields, ");
+            if ((flag1 & 0x00000010) > 0) sb.Append("Supercruise, ");
+            if ((flag1 & 0x00000020) == 0) sb.Append("FlightAssist, ");
+            if ((flag1 & 0x00000040) > 0) sb.Append("Hardpoints, ");
+            if ((flag1 & 0x00000080) > 0) sb.Append("Winging, ");
+            if ((flag1 & 0x00000100) > 0) sb.Append("Lights, ");
+            if ((flag1 & 0x00000200) > 0) sb.Append("CargoScoop, ");
+            if ((flag1 & 0x00000400) > 0) sb.Append("SilentRunning, ");
+            if ((flag1 & 0x00000800) > 0) sb.Append("Scooping, ");
+            if ((flag1 & 0x00001000) > 0) sb.Append("SrvHandbrake, ");
+            if ((flag1 & 0x00002000) > 0) sb.Append("SrvTurret, ");
+            if ((flag1 & 0x00004000) > 0) sb.Append("SrvNearShip, ");
+            if ((flag1 & 0x00008000) > 0) sb.Append("SrvDriveAssist, ");
+            if ((flag1 & 0x00010000) > 0) sb.Append("MassLocked, ");
+            if ((flag1 & 0x00020000) > 0) sb.Append("FsdCharging, ");
+            if ((flag1 & 0x00040000) > 0) sb.Append("FsdCooldown, ");
+            if ((flag1 & 0x00080000) > 0) sb.Append("LowFuel, ");
+            if ((flag1 & 0x00100000) > 0) sb.Append("Overheating, ");
+            if ((flag1 & 0x00200000) > 0) sb.Append("HasLatLong, ");
+            if ((flag1 & 0x00400000) > 0) sb.Append("InDanger, ");
+            if ((flag1 & 0x00800000) > 0) sb.Append("InInterdiction, ");
+            if ((flag1 & 0x01000000) > 0) sb.Append("InMothership, ");
+            if ((flag1 & 0x02000000) > 0) sb.Append("InFighter, ");
+            if ((flag1 & 0x04000000) > 0) sb.Append("InSrv, ");
+            if ((flag1 & 0x08000000) > 0) sb.Append("AnalysisMode, ");
+            if ((flag1 & 0x10000000) > 0) sb.Append("NightVision, ");
+            if ((flag1 & 0x20000000) > 0) sb.Append("AltitudeFromAverageRadius, ");
+            if ((flag1 & 0x40000000) > 0) sb.Append("FsdJump, ");
+            if ((flag1 & 0x80000000) > 0) sb.Append("SrvHighBeam, ");
+
+            if ((flag2 & 0x00000001) > 0) sb.Append("OnFoot, ");
+            if ((flag2 & 0x00000002) > 0) sb.Append("InTaxi, ");
+            if ((flag2 & 0x00000004) > 0) sb.Append("InMultiCrew, ");
+            if ((flag2 & 0x00000008) > 0) sb.Append("OnFootInStation, ");
+            if ((flag2 & 0x00000010) > 0) sb.Append("OnFootOnPlanet, ");
+            if ((flag2 & 0x00000020) > 0) sb.Append("AimDownSight, ");
+            if ((flag2 & 0x00000040) > 0) sb.Append("LowOxygen, ");
+            if ((flag2 & 0x00000080) > 0) sb.Append("LowHealth, ");
+            if ((flag2 & 0x00000100) > 0) sb.Append("Cold, ");
+            if ((flag2 & 0x00000200) > 0) sb.Append("Hot, ");
+            if ((flag2 & 0x00000400) > 0) sb.Append("VeryCold, ");
+            if ((flag2 & 0x00000800) > 0) sb.Append("VeryHot, ");
+            if ((flag2 & 0x00001000) > 0) sb.Append("Gliding, ");
+            if ((flag2 & 0x00002000) > 0) sb.Append("OnFootInHangar, ");
+            if ((flag2 & 0x00004000) > 0) sb.Append("OnFootInSocialSpace, ");
+            if ((flag2 & 0x00008000) > 0) sb.Append("OnFootInExterior, ");
+            if ((flag2 & 0x00010000) > 0) sb.Append("BreathableAtmosphere, ");
+
+            sb.AppendLine();
+
+            string focusName = Enum.GetName(typeof(GuiFocus), focus);
+            if (focusName != null)
+                sb.AppendLine($"Gui Focus : {focusName}");
+            else
+                sb.AppendLine("*** Unknown GUI Focus !!");
+            sb.AppendLine($"Current firegroup: {firegroup}");
+            sb.Append("Legal state : ");
+            sb.AppendLine(strArray[5]);
+            return sb.ToString();
+        }
+
 
         public void UpdateGameInfo(LoadGameEvent currentLoadGameData)
         {
@@ -676,8 +895,16 @@ namespace EliteFIPServer
                 shipName = currentLoadGameData.ShipName;
             else if (!string.IsNullOrWhiteSpace(currentLoadGameData.ShipIdent))
                 shipName = currentLoadGameData.ShipIdent;
-            sendStrings(["G", commanderName, shipName]);
+            sendStrings(["" + SerialCommands.GameInfos, commanderName, shipName]);
         }
+
+        private string DecodeArdGameInfos(string[] strArray)
+        {
+            if (strArray.Length < 3) return $"Ack Game infos : Expected 3 parameters, got {strArray.Length}";
+            return $"Ack Game infos : Commander={strArray[1]} / Ship name={strArray[2]}";
+        }
+
+
 
         public void UpdateInfo(StatusEvent? currentStatus)
         {
@@ -816,13 +1043,13 @@ namespace EliteFIPServer
         private void ardSendLocation(LocationData currentLocation)
         {
             sendStrings(
-                ["l",
+                ["" + SerialCommands.Location,
                 currentLocation.SystemName,
                 currentLocation.StationName,
                 string.IsNullOrWhiteSpace(currentLocation.StationName)
                     ? currentLocation.SystemAllegiance
-                    : string.IsNullOrWhiteSpace(currentLocation.StationAllegiance) 
-                        ? currentLocation.SystemAllegiance 
+                    : string.IsNullOrWhiteSpace(currentLocation.StationAllegiance)
+                        ? currentLocation.SystemAllegiance
                         : currentLocation.StationAllegiance,
                     currentLocation.SystemSecurity
                     ]);
@@ -835,8 +1062,12 @@ namespace EliteFIPServer
             //        ]);
 
         }
+        private string DecodeArdLocation(string[] strArray)
+        {
+            if (strArray.Length < 5) return $"Ack Location : Expected 5 parameters, got {strArray.Length}";
+            return $"Ack Location : System={strArray[1]} / Station={strArray[2]} / Allegiance={strArray[3]} / Security={strArray[4]}";
+        }
 
-      
         private static int calculatePercentageValue(double currentValue, double maxValue)
         {
             int result = 0;
@@ -874,16 +1105,16 @@ namespace EliteFIPServer
                     this.processArduinoData(indata);
                 }
             }
-            catch (TimeoutException timeoutException)
+            catch (TimeoutException)
             {
                 // We are out of sync with controller. Send a stop, clear buffers, and restart
-                this.ardPort.Write("S");
+                sendArd(SerialCommands.Silent);
                 Thread.Sleep(100);
                 serialPort.DiscardInBuffer();
                 serialPort.DiscardOutBuffer();
-                this.ardPort.Write("H");
+                sendArd(SerialCommands.Hello);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
             }
         }
@@ -899,9 +1130,9 @@ namespace EliteFIPServer
             {
                 switch (ch)
                 {
-                    case 'H':
+                    case SerialCommands.Hello:
                         this.ardPort.DiscardOutBuffer();
-                        this.ardPort.Write("V");
+                        sendArd(SerialCommands.Verbose);
                         Thread.Sleep(300);
                         break;
                     case 'S':
@@ -909,58 +1140,76 @@ namespace EliteFIPServer
                     case 'V':
                         CurrentState.Set(RunState.Started);
                         break;
-                
+
                     default:
                         string[] strArray = datain.Split('\t');
                         string strData = string.Join('\t', strArray.Skip(1));
-                       
-                        if (strArray[0].Equals("I"))
+                        if (strArray[0].StartsWith("RCV/"))
+                            strArray[0] = strArray[0].Substring(4);
+                        if (strArray[0].Length > 0)
                         {
-                            this.info = strArray[1].Substring(0, strArray[1].Length - 1);
-                            if (this.info.StartsWith("EDControlPanel"))
+                            var c = strArray[0][0];
+
+                            if (c == SerialCommands.SendInfos)
                             {
-                                CurrentState.Set(RunState.Started);
+                                this.info = strArray[1].Substring(0, strArray[1].Length - 1);
+                                if (this.info.StartsWith("EDControlPanel"))
+                                {
+                                    CurrentState.Set(RunState.Started);
+                                }
+                                else
+                                {
+                                    Log.Instance.Error("Not an ED Control panel");
+                                }
+
+                                Log.Instance.Info(datain);
+                                break;
                             }
-                            else
+                            if (c == SerialCommands.Location)
                             {
-                                Log.Instance.Error("Not an ED Control panel");
+                                Log.Instance.Info(DecodeArdLocation(strArray));
+                                break;
                             }
-
-                            Log.Instance.Info(datain);
-                            break;
-                        }
-                        if (strArray[0].Equals("l"))
-                        {
-                            Log.Instance.Info($"EDCP Acknowledged location: {strData}");
-                            break;
-                        }
-                        if (strArray[0].Equals("g"))
-                        {
-                            Log.Instance.Info($"EDCP Acknowledged gamedata: {strData}");
-                            break;
-                        }
-                        if (strArray[0].Equals("n"))
-                        {
-                            Log.Instance.Info($"EDCP Acknowledged navroute: {strData}");
-                            break;
-                        }
-
-
-                        if (strArray[0].Equals("L"))
-                        {
-                            Log.Instance.Info($"EDCP Log: {strData}");
-                            break;
-                        }
-
-                        if (strArray[0].Equals("f"))
-                        {
-                            Log.Instance.Info($"EDCP Acknowledged flags / status: {strData}");
-                            break;
+                            if (c == SerialCommands.GameInfos)
+                            {
+                                Log.Instance.Info(DecodeArdGameInfos(strArray));
+                                break;
+                            }
+                            if (c == SerialCommands.GameFlags)
+                            {
+                                Log.Instance.Info(DecodeArdGameFlags(strArray));
+                                break;
+                            }
+                            if (c == SerialCommands.LoadOut)
+                            {
+                                Log.Instance.Info(DecodeArdLoadOut(strArray));
+                                break;
+                            }
+                            if (c == SerialCommands.NavRoute)
+                            {
+                                Log.Instance.Info(DecodeArdNavRoute(strArray));
+                                break;
+                            }
+                            if (c == SerialCommands.Alerts)
+                            {
+                                Log.Instance.Info(DecodeArdAlert(strArray));
+                                break;
+                            }
+                            if (c == SerialCommands.Shutdown)
+                            {
+                                Log.Instance.Info($"EDCP Acknowledged Shutdown: {strData}");
+                                break;
+                            }
+                            if (c == 'L')
+                            {
+                                Log.Instance.Info($"EDCP Log: {strData}");
+                                break;
+                            }
                         }
                         break;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
             }
         }

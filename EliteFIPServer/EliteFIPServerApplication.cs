@@ -1,19 +1,26 @@
-
 using System.Windows;
 
-namespace EliteFIPServer {
-    public class EliteFIPServerApplication : Application {
+namespace EliteFIPServer
+{
+    public class EliteFIPServerApplication : Application
+    {
 
         private static string[] AppArgs;
-
 
         /// <summary>
         ///  The main entry point for the application.
         /// </summary>
         [STAThread]
-        static void Main(string[] args) {
+        static void Main(string[] args)
+        {
             AppArgs = args;
             EliteFIPServerApplication serverApp = new EliteFIPServerApplication();
+            serverApp.Resources.MergedDictionaries.Add(
+                new ResourceDictionary
+                {
+                    Source = new Uri("Theme.xaml", UriKind.Relative)
+                });
+
             serverApp.StartupUri = new Uri("ServerConsole.xaml", UriKind.RelativeOrAbsolute);
             serverApp.Run();
         }

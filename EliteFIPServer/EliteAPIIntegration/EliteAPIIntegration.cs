@@ -2,234 +2,18 @@
 using EliteAPI.Abstractions;
 using EliteAPI.Abstractions.Events;
 using EliteAPI.Events;
-using EliteAPI.Status.Modules;
 using EliteAPI.Status.NavRoute;
 using EliteAPI.Status.Ship;
+using EliteAPI.Status.Ship.Events;
 using EliteFIPServer.Logging;
-using Microsoft.AspNetCore.Mvc.Diagnostics;
-using System.Text.Json;
+using ExoScan.StellarStructs;
+using static ExoScan.DataManager;
 
+namespace EliteFIPServer
+{
 
-namespace EliteFIPServer {
-
-    public class LocationData: IEvent
+    public class EliteAPIIntegration
     {
-        public LocationData()
-        {
-
-        }
-        public LocationData(LocationEvent currentLocationData)
-        {
-            Timestamp = currentLocationData.Timestamp;
-            SystemId = currentLocationData.SystemAddress;
-            SystemName = currentLocationData.StarSystem;
-            BodyId = currentLocationData.BodyId;
-            Body = currentLocationData.Body;
-            MarketId = currentLocationData.MarketId;
-            StationName = currentLocationData.StationName;
-            StationType = currentLocationData.StationType;
-            StationFaction = currentLocationData.StationFaction.Name;
-            StationGovernment = currentLocationData.StationGovernment.Local;
-            StationAllegiance = currentLocationData.StationAllegiance;
-            StationEconomy = currentLocationData.StationEconomy.Local;
-            DistanceFromStarInLightSeconds = currentLocationData.DistanceFromStarInLightSeconds;
-            SystemAllegiance = currentLocationData.SystemAllegiance;
-            SystemSecurity = currentLocationData.SystemSecurity.Local;
-        }
-
-        public string SystemId { get; set; }
-        public string SystemName { get; set; }
-        public string BodyId { get; set; }
-        public string Body { get; set; }
-        public string MarketId { get; set; }
-        public string StationName { get; set; }
-        public string StationType { get; set; }
-        public double DistanceFromStarInLightSeconds { get; set; }
-        public string StationAllegiance { get; set; }
-        public string StationEconomy { get; set; }
-        public string StationFaction { get; set; }
-        public string StationGovernment { get; set; }
-        public string SystemAllegiance { get; set; }
-        public string SystemSecurity { get; set; }
-
-        public DateTime Timestamp { get; set; }
-
-        public string Event => "Location";
-
-
-        public LocationData Update(ApproachBodyEvent data)
-        {
-            Timestamp = data.Timestamp;
-            BodyId = data.BodyId;
-            Body = data.Body;
-            SystemName = data.StarSystem;
-            SystemId = data.SystemAddress;
-            return this;
-        }
-
-        public LocationData Update(FsdJumpEvent fsdJumpdataData)
-        {
-            Timestamp = fsdJumpdataData.Timestamp;
-            SystemId = fsdJumpdataData.SystemAddress;
-            SystemName = fsdJumpdataData.StarSystem;
-            BodyId = fsdJumpdataData.BodyId;
-            Body = fsdJumpdataData.Body;
-            SystemAllegiance = fsdJumpdataData.SystemAllegiance;
-            SystemSecurity = fsdJumpdataData.SystemSecurity.Local;
-            return this;
-        }
-
-        public LocationData Update(LeaveBodyEvent data)
-        {
-            Timestamp = data.Timestamp;
-            BodyId = "";
-            Body = "";
-
-            return this;
-        }
-
-        public LocationData Update(DockedEvent dockedData)
-        {
-            Timestamp = dockedData.Timestamp;
-            MarketId = dockedData.MarketId;
-            StationName = dockedData.StationName;
-            StationType = dockedData.StationType;
-            return this;
-        }
-
-        public LocationData Update(UndockedEvent undockedData)
-        {
-            Timestamp = undockedData.Timestamp;
-            MarketId = "";
-            StationName = "";
-            StationType = "";
-            return this;
-        }
-    }
-
-    public class NavigationData : IEvent
-    {
-        public NavigationData() {
-        }
-        public NavigationData(NavRouteEvent currentNavRouteData)
-        {
-            Timestamp = currentNavRouteData.Timestamp;
-            Log.Instance.Info("New route has {jumpcount} jumps", currentNavRouteData.Stops.Count());
-            NavRouteActive = true;
-            Stops.Clear();
-            foreach (EliteAPI.Status.NavRoute.NavRouteStop navRouteStop in currentNavRouteData.Stops)
-            {
-                NavigationData.NavRouteStop navStop = new NavigationData.NavRouteStop();
-                navStop.SystemId = navRouteStop.Address;
-                navStop.SystemName = navRouteStop.System;
-                navStop.Class = navRouteStop.Class;
-                Stops.Add(navStop);
-            }
-        }
-
-        public bool NavRouteActive { get; set; }
-
-        public string LastSystemReached { get; set; }
-        public List<NavRouteStop> Stops { get; set; } = new List<NavRouteStop>();
-
-        public DateTime Timestamp { get; set; }
-
-        public string Event => "Navigation";
-
-        public class NavRouteStop
-        {
-            public string SystemId { get; set; }
-            public string SystemName { get; set; }
-            public string Class { get; set; }
-        }
-
-        public NavigationData Update(FsdJumpEvent fsdJumpdataData)
-        {
-            foreach (NavRouteStop navRouteStop in Stops)
-            {
-                if (navRouteStop.SystemName == fsdJumpdataData.StarSystem)
-                {
-                    LastSystemReached = fsdJumpdataData.StarSystem;
-                }
-            }
-            return this;
-        }
-
-        public NavigationData Update(NavRouteClearEvent clearEvent)
-        {
-            Timestamp = clearEvent.Timestamp;
-            NavRouteActive = false;
-            Stops.Clear();
-            return this;
-
-        }
-    }
-
-    public class JumpData : IEvent
-    {
-        public bool JumpComplete { get; set; }
-        public string OriginSystemId { get; set; }
-        public string OriginSystemName { get; set; }
-        public string DestinationSystemId { get; set; }
-        public string DestinationSystemName { get; set; }
-        public string DestinationSystemClass { get; set; }
-        public double JumpDistance { get; set; }
-        public double FuelUsed { get; set; }
-        public DateTime Timestamp { get; set; }
-        public string Event => "Jump";
-
-        public JumpData Update(LocationData currentLocation, StartJumpEvent data)
-        {
-            Timestamp = data.Timestamp;
-            JumpComplete = false;
-
-            OriginSystemId = currentLocation.SystemId;
-            OriginSystemName = currentLocation.SystemName;
-            DestinationSystemId = data.SystemAddress;
-            DestinationSystemName = data.StarSystem;
-            DestinationSystemClass = data.StarClass;
-            JumpDistance = 0;
-            FuelUsed = 0;
-
-            return this;
-        }
-
-        public JumpData Update(FsdJumpEvent fsdJumpdataData)
-        {
-            Timestamp = fsdJumpdataData.Timestamp;
-            DestinationSystemId = fsdJumpdataData.SystemAddress;
-            DestinationSystemName = fsdJumpdataData.StarSystem;
-            JumpDistance = fsdJumpdataData.JumpDist;
-            FuelUsed = fsdJumpdataData.FuelUsed;
-            JumpComplete = true;
-            return this;
-        }
-    }
-
-    public class ApiEventDataManager
-    {
-        private Dictionary<Type, IEvent> lastData = new Dictionary<Type, IEvent>();
-        
-        public IEvent this[Type evtType]
-        {
-            get
-            {
-                if (lastData.TryGetValue(evtType, out IEvent value))
-                {
-                    return value;
-                }
-                return null;
-            }
-            set
-            {
-                lastData[evtType] = value;
-            }
-        }
-
-    }
-
-    public delegate void ApiEventHandler(IEvent @event);
-    public class EliteAPIIntegration {
 
         bool handleImplicitEvents = true;
         private CoreServer CoreServer;
@@ -242,7 +26,11 @@ namespace EliteFIPServer {
         public ApiEventDataManager currentData = new ApiEventDataManager();
         private Dictionary<Type, ApiEventHandler> handlers = new Dictionary<Type, ApiEventHandler>();
 
-        public EliteAPIIntegration(CoreServer coreServer) {
+        // used for journal replay
+        private bool ignoreTimeStamps = false;
+
+        public EliteAPIIntegration(CoreServer coreServer)
+        {
             CoreServer = coreServer;
             CurrentState = new ComponentState();
 
@@ -259,23 +47,43 @@ namespace EliteFIPServer {
             handlers.Add(typeof(NavRouteClearEvent), HandleNavRouteClearEvent);
             handlers.Add(typeof(DockedEvent), HandleDockedEvent);
             handlers.Add(typeof(UndockedEvent), HandleUndockedEvent);
+            handlers.Add(typeof(GuiFocusStatusEvent), HandleGuiFocusStatusEvent);
             EliteAPI.Events.OnAny(HandleEliteApiEvent);
-            // EliteAPI.Events.OnAnyJson(HandleEliteApiEventJson);
+            EliteAPI.Events.OnAnyJson(HandleEliteApiEventJson);
+            ExoData.SetEliteAPIInstance(EliteAPI);
+            ExoData.ExoDataUpdateHandler += UpdateExoData;
+            ExoData.OnLog += Log.Instance.Info;
+        }
+
+        private void HandleGuiFocusStatusEvent(IEvent eventData)
+        {
+            var data = (GuiFocusStatusEvent)eventData;
+            var statusData = currentData[typeof(StatusEvent)];
+            if (statusData != null)
+            {
+                StatusEvent statusEvent = (StatusEvent)statusData;
+                statusEvent.GuiFocus = data.Value;
+                statusEvent.Timestamp = data.Timestamp;
+                currentData[typeof(StatusEvent)] = statusEvent;
+                CoreServer.GameDataEvent(statusEvent);
+            }
         }
 
         private void HandleEliteApiEventJson(string json, EventContext context)
         {
-            Log.Instance.Info($"Json : " + json);
+            //            Log.Instance.Info($"Json : " + json);
         }
 
-        public void Start() {
+        public void Start()
+        {
             CurrentState.Set(RunState.Starting);
             // Start tracking game events
             EliteAPI.StartAsync();
             CurrentState.Set(RunState.Started);
         }
 
-        public void Stop() {
+        public void Stop()
+        {
             CurrentState.Set(RunState.Stopping);
             // Stop tracking game events
             EliteAPI.StopAsync();
@@ -283,7 +91,8 @@ namespace EliteFIPServer {
 
         }
 
-        public void FullClientUpdate() {
+        public void FullClientUpdate()
+        {
             CoreServer.GameDataEvent(currentData[typeof(StatusEvent)]);
             CoreServer.GameDataEvent(currentData[typeof(ShipTargetedEvent)]);
             CoreServer.GameDataEvent(currentData[typeof(LocationEvent)]);
@@ -291,6 +100,7 @@ namespace EliteFIPServer {
             CoreServer.GameDataEvent(currentData[typeof(NavRouteEvent)]);
             CoreServer.GameDataEvent(currentData[typeof(JumpData)]);
             CoreServer.GameDataEvent(currentData[typeof(NavigationData)]);
+            CoreServer.GameDataEvent(currentData[typeof(ExobiologyData)]);
             CoreServer.GameDataEvent(currentData[typeof(DockingGrantedEvent)]);
             CoreServer.GameDataEvent(currentData[typeof(DockingDeniedEvent)]);
             CoreServer.GameDataEvent(currentData[typeof(DockingTimeoutEvent)]);
@@ -310,7 +120,10 @@ namespace EliteFIPServer {
         public void HandleEliteApiEvent(IEvent eventData, EventContext context)
         {
             Log.Instance.Info($"Handling {eventData.Event} Event");
-//            Log.Instance.Info($"Handling {eventData.Event} Event : " + JsonSerializer.Serialize(eventData));
+            //            Log.Instance.Info($"Handling {eventData.Event} Event : " + JsonSerializer.Serialize(eventData));
+
+            ExoData.HandleEliteApiEvent(eventData, context);
+
             if (handlers.ContainsKey(eventData.GetType()))
                 handlers[eventData.GetType()](eventData);
             else if (handleImplicitEvents)
@@ -319,6 +132,19 @@ namespace EliteFIPServer {
                 CoreServer.GameDataEvent(eventData);
             }
         }
+
+        //private void HandleScanEvent(IEvent eventData)
+        //{
+        //    var data = (ScanEvent)eventData;
+        //    LocationData currentLocation = (LocationData)currentData[typeof(LocationData)] ?? new LocationData();
+        //    ExobiologyData exo = (ExobiologyData)currentData[typeof(ExobiologyData)] ?? new ExobiologyData();
+
+        //    if (ignoreTimeStamps || (exo.Timestamp <= data.Timestamp))
+        //    {
+        //        currentData[data.GetType()] = data;
+        //        CoreServer.GameDataEvent(data);
+        //    }
+        //}
 
         private void HandleUndockedEvent(IEvent eventData)
         {
@@ -381,6 +207,7 @@ namespace EliteFIPServer {
         {
             var fsdJumpdataData = (FsdJumpEvent)eventData;
             LocationData currentLocation = (LocationData)currentData[typeof(LocationData)] ?? new LocationData();
+
             if (currentLocation.Timestamp <= fsdJumpdataData.Timestamp)
             {
                 currentData[typeof(LocationData)] = currentLocation.Update(fsdJumpdataData);
@@ -442,6 +269,7 @@ namespace EliteFIPServer {
         {
             var data = (LocationEvent)eventData;
             LocationData location = new LocationData(data);
+            ExoData.HandleLocation(data);
             currentData[typeof(LocationData)] = location;
             CoreServer.GameDataEvent(location);
         }
@@ -454,6 +282,13 @@ namespace EliteFIPServer {
                 currentData[eventData.GetType()] = eventData;
             }
             CoreServer.GameDataEvent(eventData);
+        }
+
+        internal void ImportAll()
+        {
+            ignoreTimeStamps = true;
+            ExoData.ImportAllJournals();
+            ignoreTimeStamps = false;
         }
 
         //public void HandleShipTargetedEvent(EliteAPI.Events.ShipTargetedEvent currentTargetData, EventContext context)
@@ -516,5 +351,51 @@ namespace EliteFIPServer {
         //    }
         //}
 
+
+        #region Exobiology handling
+
+        /// <summary>
+        /// This method is called by ExoScan when internal scan related data changed.
+        /// </summary>
+        /// <param name="System"></param>
+        /// <param name="bodyId"></param>
+        /// <param name="timestamp"></param>
+        private void UpdateExoData(StarSystem System, int? bodyId, DateTime timestamp)
+        {
+            ExobiologyData exo = (ExobiologyData)currentData[typeof(ExobiologyData)] ?? new ExobiologyData();
+            if (ignoreTimeStamps || (exo.Timestamp <= timestamp))
+            {
+                System.UpdateScanResults(bodyId, out var hasChanges);
+                if (hasChanges)
+                {
+                    exo.Update(System, bodyId, timestamp);
+                    currentData[typeof(ExobiologyData)] = exo;
+                    CoreServer.GameDataEvent(exo);
+                }
+            }
+        }
+
+        public List<ExobiologyData> GetSystems(Position currentPosition = null, double range = 1000, bool retriggerEvent = false)
+        {
+            IEnumerable<StarSystem> systems = ExoData.GetSystemsInRange(currentPosition, range);
+            var result = new List<ExobiologyData>();
+            foreach (var system in systems)
+            {
+                ExobiologyData exo = new ExobiologyData();
+                if (system.ScanResults.Count > 0)
+                {
+                    exo.Update(system, null, DateTime.Now);
+                    result.Add(exo);
+                    if (retriggerEvent)
+                    {
+                        currentData[typeof(ExobiologyData)] = exo;
+                        CoreServer.GameDataEvent(exo);
+                    }
+                }
+            }
+            return result;
+        }
+
+        #endregion
     }
 }

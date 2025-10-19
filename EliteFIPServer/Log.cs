@@ -3,15 +3,19 @@ using NLog.Config;
 using NLog.Targets;
 using LogLevel = NLog.LogLevel;
 
-namespace EliteFIPServer.Logging {
-    internal static class Log {
+namespace EliteFIPServer.Logging
+{
+    internal static class Log
+    {
 
         public static Logger Instance { get; private set; }
 
-        static Log() {
+        static Log()
+        {
 #if DEBUG
             // Setup the logging view for Sentinel - http://sentinel.codeplex.com
-            var sentinelTarget = new NLogViewerTarget() {
+            var sentinelTarget = new NLogViewerTarget()
+            {
                 Name = "sentinel",
                 Address = "udp://127.0.0.1:9999",
                 IncludeNLogData = false
@@ -26,11 +30,14 @@ namespace EliteFIPServer.Logging {
             Instance = LogManager.GetCurrentClassLogger();
         }
 
-        public static void LogEnabled(bool newState) {
-            if (newState == true && LogManager.IsLoggingEnabled() == false) {
+        public static void LogEnabled(bool newState)
+        {
+            if (newState == true && LogManager.IsLoggingEnabled() == false)
+            {
                 LogManager.ResumeLogging();
             }
-            if (newState == false && LogManager.IsLoggingEnabled() == true) {
+            if (newState == false && LogManager.IsLoggingEnabled() == true)
+            {
                 LogManager.SuspendLogging();
             }
         }

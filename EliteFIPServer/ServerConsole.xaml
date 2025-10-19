@@ -3,19 +3,31 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:EliteFIPServer"
         mc:Ignorable="d"
-        Title="Elite Server Console" Height="542" Width="686" WindowStyle="SingleBorderWindow" ResizeMode="CanResizeWithGrip"        
+        Title="Elite Server Console" Height="542" Width="686"
+        WindowStyle="SingleBorderWindow" ResizeMode="CanResizeWithGrip"
+        xmlns:sysglb="clr-namespace:System.Globalization;assembly=mscorlib"
+        Background="{StaticResource BackgroundBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Consolas"    
+    xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2" Loaded="Window_Loaded" 
         >
-
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <DockPanel>
-        <StatusBar DockPanel.Dock="Bottom" Height="25" >
+        <StatusBar DockPanel.Dock="Bottom" Height="25">
             <StatusBarItem HorizontalAlignment="Left">
-                <TextBox x:Name="txtInfoText" Text="Initialising Elite Server..." TextAlignment="Right" Background="#FFF1EDED"/>
+                <TextBox x:Name="txtInfoText" Text="Initialising Elite Server..." TextAlignment="Right" Foreground="{StaticResource PrimaryBrush}" Background="{StaticResource BackgroundBrush}" Margin="0" Padding="0" />
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBox x:Name="txtVersion" Text="3.1.23012.57" TextAlignment="Right" Background="#FFF1EDED"/>
+                <TextBox x:Name="txtVersion" Text="3.1.23012.57" TextAlignment="Right"  Foreground="{StaticResource PrimaryBrush}" Background="{StaticResource BackgroundBrush}" Margin="0" Padding="0"/>
             </StatusBarItem>
-
         </StatusBar>
 
         <Grid Margin="10,15,10,15">
@@ -24,10 +36,11 @@
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="1*" />
             </Grid.RowDefinitions>
-            <Grid Grid.Column="0" Grid.Row="0" >
+
+            <!-- En-tête statuts -->
+            <Grid Grid.Column="0" Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*" />
                     <ColumnDefinition Width="1*" />
@@ -38,19 +51,115 @@
                     <RowDefinition Height="30" />
                     <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
+
                 <Label Grid.Column="1" Grid.Row="0" Content="Status" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
                 <Label Grid.Column="2" Grid.Row="0" Content="Control" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
-                <Label Grid.Column="0" Grid.Row="1" Content="Core Server" HorizontalAlignment="left" VerticalAlignment="Center" FontSize="12" Margin="0,0,0,0"/>
-                <Label Grid.Column="0" Grid.Row="2" Content="ED Control Panel" HorizontalAlignment="left" VerticalAlignment="Center" FontSize="12" Margin="0,0,0,0"/>
-                <Image x:Name="imgCoreServerStatus" Grid.Column="1" Grid.Row="1"  HorizontalAlignment="Center"  VerticalAlignment="Center" Source="/Images/minus32.png" Margin="0"/>
-                <Image x:Name="imgEDCPStatus" Grid.Column="1" Grid.Row="2"  HorizontalAlignment="Center"  VerticalAlignment="Center" Source="/Images/minus32.png" Margin="0"/>
+                <Label Grid.Column="0" Grid.Row="1" Content="Core Server" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="12"/>
+                <Label Grid.Column="0" Grid.Row="2" Content="ED Control Panel" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="12"/>
 
-                <Button x:Name="cmdEDCP" Grid.Column="3" Grid.Row="2" Margin="10,3,10,3" Content="Start" Click="CmdEDCP_onClick"/>
+                <Image x:Name="imgCoreServerStatus" Grid.Column="1" Grid.Row="1" Source="/Images/minus32.png" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Image x:Name="imgEDCPStatus" Grid.Column="1" Grid.Row="2" Source="/Images/minus32.png" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <Button x:Name="cmdEDCP" Grid.Column="3" Grid.Row="2" Content="Start" Margin="10,3,10,3" Click="CmdEDCP_onClick"/>
             </Grid>
-            <CheckBox Margin="0,10,0,0" Grid.Column="0" Grid.Row="1" x:Name="chkEnableLog" Content="Enable Log" HorizontalAlignment="Left" VerticalAlignment="Top" Checked="chkEnableLog_Checked" Unchecked="chkEnableLog_Checked" />
-            <Grid Margin="0,10,0,0"  Grid.Column="0" Grid.Row="2">
-                <TextBox x:Name="LogTextbox" TextWrapping="Wrap" Text=""/>
-            </Grid>
+
+            <!-- Tabs -->
+            <TabControl Grid.Row="1">
+                <!-- LOGS -->
+                <TabItem Header="Logs">
+                    <Grid >
+                        <!--Background="#FFE5E5E5"-->
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <CheckBox x:Name="chkEnableLog" Content="Enable Log" Margin="0,10,0,0"
+                                  Grid.Row="0"
+                                  Checked="chkEnableLog_Checked" Unchecked="chkEnableLog_Checked"/>
+                        <TextBox x:Name="LogTextbox" Grid.Row="1" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                </TabItem>
+
+                <!-- EXOBIOLOGY -->
+                <TabItem Header="ExoBiology">
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="100" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ComboBox systèmes -->
+                        <Grid Grid.Row="0" Grid.Column="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding Systems}"
+                                  DisplayMemberPath="Desc"
+                                  SelectedItem="{Binding SelectedSystem, Mode=TwoWay}" SelectionChanged="ComboBox_SelectionChanged" />
+                            <TextBlock Text="Range:" Grid.Column="1" VerticalAlignment="Center" Margin="5,0,5,0" />
+                            <TextBox x:Name="tbRange" Grid.Column="2" Width="75" Height="25" Text="{Binding MaxRange, UpdateSourceTrigger=PropertyChanged}"  />
+                        </Grid>
+                        <Button Grid.Row="0" Grid.Column="1" Margin="10,3,10,3" Content="Import All" Click="Button_Click" />
+
+                        <!-- En-tête colonnes -->
+                        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,30,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="150"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Planet/Species Name" Grid.Column="0" FontWeight="Bold"/>
+                            <TextBlock Text="Planet Class / Exo Value" Grid.Column="1" FontWeight="Bold"/>
+                            <TextBlock Text="Atmosphere / Min Dist" Grid.Column="2" FontWeight="Bold"/>
+                        </Grid>
+
+                        <!-- TreeView -->
+                        <TreeView x:Name="BodiesTreeView" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Bodies}">
+                            <TreeView.Resources>
+                                <HierarchicalDataTemplate DataType="{x:Type local:BodyView}" ItemsSource="{Binding Scans}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="150"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Text="{Binding BodyName}" FontWeight="Bold" Grid.Column="0"/>
+                                        <TextBlock Text="{Binding PlanetClass}" FontWeight="Bold" Grid.Column="1"/>
+                                        <TextBlock Text="{Binding AtmosphereType}" FontWeight="Bold" Grid.Column="2"/>
+                                    </Grid>
+
+                                    <HierarchicalDataTemplate.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="200"/>
+                                                    <ColumnDefinition Width="200"/>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="100"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Text="{Binding Name}" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Value, StringFormat='{}{0:C0}', ConverterCulture={x:Static sysglb:CultureInfo.CurrentUICulture}}" Grid.Column="1"/>
+                                                <TextBlock Text="{Binding Distance}" Grid.Column="2"/>
+                                                <TextBlock Text="{Binding Seen}" Grid.Column="3"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </HierarchicalDataTemplate.ItemTemplate>
+                                </HierarchicalDataTemplate>
+                            </TreeView.Resources>
+                        </TreeView>
+                    </Grid>
+                </TabItem>
+            </TabControl>
         </Grid>
     </DockPanel>
 </Window>

@@ -1,5 +1,7 @@
-﻿namespace EliteFIPServer {
-    interface IGameDataEvent {
+﻿namespace EliteFIPServer
+{
+    interface IGameDataEvent
+    {
         void GameDataEvent(GameEventType eventType, Object evt);
     }
 }

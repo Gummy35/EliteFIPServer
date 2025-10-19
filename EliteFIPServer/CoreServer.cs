@@ -1,11 +1,13 @@
 ﻿using EliteAPI.Abstractions.Events;
 using EliteFIPServer.Logging;
 using System.Collections.Concurrent;
+using System.Net;
 
 
 namespace EliteFIPServer
 {
-    public enum GameEventType {
+    public enum GameEventType
+    {
         Empty,
         Status,
         Target,
@@ -28,15 +30,18 @@ namespace EliteFIPServer
         ShipyardBuy,
         ApproachBody
     }
-    public struct GameEventTrigger {
+    public struct GameEventTrigger
+    {
         public IEvent GameEvent { get; set; }
 
-        public GameEventTrigger(IEvent gameEvent) {
+        public GameEventTrigger(IEvent gameEvent)
+        {
             GameEvent = gameEvent;
         }
     }
 
-    public class CoreServer {
+    public class CoreServer
+    {
 
         // Reference to Primary UI 
         private ServerConsole ServerConsole;
@@ -53,8 +58,15 @@ namespace EliteFIPServer
         public EliteAPIIntegration EliteAPIIntegration { get; private set; }
 
         public EDCPClient EDCPClient { get; private set; }
+        public ExoViewModel ExoView { get; set; } = new();
 
-        public CoreServer(ServerConsole serverConsole) {
+        private WebServer? webServer;
+        private HttpListener httpListener;
+        private Task httpTask;
+        private CancellationTokenSource httpCTS;
+
+        public CoreServer(ServerConsole serverConsole)
+        {
             ServerConsole = serverConsole;
             CurrentState = new ComponentState();
 
@@ -62,9 +74,11 @@ namespace EliteFIPServer
             EDCPClient = new EDCPClient();
         }
 
-        public void Start() {
+
+        public void Start()
+        {
             Log.Instance.Info("Server Core starting");
-            CurrentState.Set(RunState.Starting);            
+            CurrentState.Set(RunState.Starting);
 
             // Start Game Data Worker Thread
             Log.Instance.Info("Starting Game data worker");
@@ -75,30 +89,36 @@ namespace EliteFIPServer
 
             EliteAPIIntegration.Start();
 
- 
+            webServer = new WebServer(this);
+            webServer.Start(Properties.Settings.Default.PanelServerPort);
+
             CurrentState.Set(RunState.Started);
             //ServerConsole.UpdateServerStatus(ServerCoreState);
-            Log.Instance.Info("Server Core started");            
+            Log.Instance.Info("Server Core started");
         }
 
-        public void Stop() {
-            Log.Instance.Info("Server Core stopping");            
+        public void Stop()
+        {
+            Log.Instance.Info("Server Core stopping");
             CurrentState.Set(RunState.Stopping);
             EliteAPIIntegration.Stop();
 
             // Isssue the cancel to signal worker threads to end
             GameDataWorkerCTS.Cancel();
 
+            webServer?.Stop();
+
             // Stop Panel Server
             EDCPClient.Stop();
 
             GameDataQueue.CompleteAdding();
-            CurrentState.Set(RunState.Stopped);                                   
+            CurrentState.Set(RunState.Stopped);
             Log.Instance.Info("Server Core stopped");
         }
 
 
-        private void GameDataWorkerThread() {
+        private void GameDataWorkerThread()
+        {
 
             GameDataWorkerState = RunState.Started;
             Log.Instance.Info("Game Data Worker Thread started");
@@ -109,15 +129,22 @@ namespace EliteFIPServer
             CancellationToken cToken = GameDataWorkerCTS.Token;
 
 
-            while (cToken.IsCancellationRequested == false && !GameDataQueue.IsCompleted) {
+            while (cToken.IsCancellationRequested == false && !GameDataQueue.IsCompleted)
+            {
 
                 GameEventTrigger gameEventTrigger = new GameEventTrigger(null);
-                try {
+                try
+                {
                     gameEventTrigger = GameDataQueue.Take(cToken);
-                } catch (InvalidOperationException) { }
+                }
+                catch (InvalidOperationException e)
+                {
+                    Log.Instance.Error("Exception " + e.Message);
+                }
 
-                if (gameEventTrigger.GameEvent != null) {
-                    // Log.Instance.Info("Updating {statetype} data", gameEventTrigger.GameEvent.ToString());
+                if (gameEventTrigger.GameEvent != null)
+                {
+                    //    Log.Instance.Info("Updating {statetype} data", gameEventTrigger.GameEvent.ToString());
                     EDCPClient.UpdateGameState(gameEventTrigger.GameEvent);
                 }
                 //Log.Instance.Info("Game Data Worker Thread waiting for new work");
@@ -125,10 +152,12 @@ namespace EliteFIPServer
             Log.Instance.Info("Game Data Worker Thread ending");
         }
 
-        private void GameDataWorkerThreadEnded(Task task) {
+        private void GameDataWorkerThreadEnded(Task task)
+        {
             GameDataWorkerState = RunState.Stopped;
-            if (task.Exception != null) {
-                Log.Instance.Info("GameData Worker Thread Exception: {exception}", task.Exception.ToString());
+            if (task.Exception != null)
+            {
+                Log.Instance.Info($"GameData Worker Thread Exception: {task.Exception.ToString()}");
             }
             Log.Instance.Info("GameData Worker Thread ended");
         }

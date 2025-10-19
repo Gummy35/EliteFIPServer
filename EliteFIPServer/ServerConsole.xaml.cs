@@ -1,16 +1,20 @@
 ﻿
 using EliteFIPServer.Logging;
+using ExoScan.StellarStructs;
 using NLog;
 using NLog.Config;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
-namespace EliteFIPServer {
+namespace EliteFIPServer
+{
     /// <summary>
     /// Interaction logic for ServerConsole.xaml
     /// </summary>
-    public partial class ServerConsole : Window {
+    public partial class ServerConsole : Window
+    {
+
 
         private CoreServer ServerCore;
 
@@ -18,12 +22,30 @@ namespace EliteFIPServer {
         private delegate void ButtonSafeCallDelegate(Button target, bool newstate);
 
         private bool EDCPActive = false;
+        public ExoViewModel ExoView { get; set; } = new();
+
 
         private static readonly NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
         private NLog.Targets.MethodCallTarget _nlogMemoryTarget;
 
-        public ServerConsole() {
+        private int maxRange = 500;
+        public int MaxRange
+        {
+            get => maxRange;
+            set
+            {
+                if (maxRange != value)
+                {
+                    maxRange = value;
+                    UpdateSystems(ExoView.SelectedSystem?.SystemName);
+                }
+            }
+        }
+
+        public ServerConsole()
+        {
             InitializeComponent();
+            tbRange.DataContext = this;
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             txtVersion.Text = version.ToString();
 
@@ -40,10 +62,78 @@ namespace EliteFIPServer {
             ServerCore = new CoreServer(this);
             ServerCore.CurrentState.onStateChange += HandleCoreServerStateChange;
             ServerCore.EDCPClient.CurrentState.onStateChange += HandleEDCPStateChange;
+            ServerCore.EDCPClient.exoDataChanged += HandleExoDataChange;
+            ServerCore.EDCPClient.locationChanged += HandleLocationChange;
+            ServerCore.ExoView = ExoView;
+            DataContext = ExoView;
 
             ServerCore.EDCPClient.Start();
             ServerCore.Start();
+        }
 
+        public void UpdateSystems(string currentSystemName, int maxRange)
+        {
+            var systems = ServerCore.EliteAPIIntegration.GetSystems(ExobiologyData.ReferencePosition, maxRange);
+            ExoView.SetSystems(systems);
+            if (!string.IsNullOrEmpty(currentSystemName))
+            {
+                var existing = ExoView.Systems.FirstOrDefault(x => x.SystemName == currentSystemName);
+
+                ExoView.SelectedSystem = existing;
+                ExoView.RefreshSelectedSystem();
+            }
+        }
+
+        private void UpdateSystems(string currentSystemName)
+        {
+            UpdateSystems(currentSystemName, maxRange);
+        }
+
+        private void HandleLocationChange(object sender, LocationData e)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExobiologyData.ReferencePosition = new Position(e.StarPos);
+                UpdateSystems(e.SystemName);
+            }));
+        }
+
+
+
+        private void HandleExoDataChange(object sender, ExobiologyData e)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var existing = ExoView.Systems.FirstOrDefault(x => x.SystemName == e.SystemName);
+
+                if (existing != null)
+                {
+                    existing.Timestamp = e.Timestamp;
+                    existing.LastBodyId = e.LastBodyId;
+                    existing.LastBodyName = e.LastBodyName;
+                    existing.Scans = e.Scans;
+                }
+                else
+                {
+                    ExoView.Systems.Add(e);
+                    existing = e;
+                }
+
+                //exoView.SelectedSystem = existing;
+                ExoView.RefreshSelectedSystem();
+
+                var exoViewBody = ExoView.Bodies.FirstOrDefault(b => b.BodyId == e.LastBodyId);
+                if (exoViewBody != null)
+                {
+                    var tvi = BodiesTreeView.ItemContainerGenerator.ContainerFromItem(exoViewBody) as TreeViewItem;
+                    if (tvi != null)
+                    {
+                        tvi.IsSelected = true;
+                        tvi.BringIntoView();
+                        tvi.Focus();
+                    }
+                }
+            }));
         }
 
         private void LogText(LogEventInfo info, object[] arg2)
@@ -68,7 +158,8 @@ namespace EliteFIPServer {
             }
         }
 
-        private void HandleCoreServerStateChange(object sender, RunState newState) {
+        private void HandleCoreServerStateChange(object sender, RunState newState)
+        {
             Dispatcher.Invoke(new Action(() => setStatusImage(imgCoreServerStatus, newState)));
         }
 
@@ -80,17 +171,21 @@ namespace EliteFIPServer {
             EDCPActive = newState == RunState.Started ? true : false;
         }
 
-        public void updateInfoText(string newInfoText) {
+        public void updateInfoText(string newInfoText)
+        {
             Dispatcher.Invoke(new Action(() => setInfoText(newInfoText)));
         }
 
-        private void setInfoText(string newInfoText) {
+        private void setInfoText(string newInfoText)
+        {
             txtInfoText.Text = newInfoText;
         }
 
-        private void setButtonText(Button target, RunState newState) {
-            
-            switch (newState) {
+        private void setButtonText(Button target, RunState newState)
+        {
+
+            switch (newState)
+            {
                 case RunState.Stopped:
                     target.Content = "Start";
                     target.IsEnabled = true;
@@ -113,9 +208,11 @@ namespace EliteFIPServer {
             }
         }
 
-        private void setStatusImage(Image target, RunState newState) {
+        private void setStatusImage(Image target, RunState newState)
+        {
 
-            switch (newState) {
+            switch (newState)
+            {
                 case RunState.Stopped:
                     target.Source = new BitmapImage(new Uri("pack://application:,,,/Images/minus32.png"));
                     break;
@@ -138,5 +235,21 @@ namespace EliteFIPServer {
             Properties.Settings.Default.Save();
             Log.LogEnabled(Properties.Settings.Default.EnableLog);
         }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            ServerCore.EliteAPIIntegration.ImportAll();
+        }
+
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            //ServerCore.EliteAPIIntegration.GetSystems();
+        }
+
     }
 }

@@ -9,16 +9,7 @@
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="PanelServerPort" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">4545</Value>
-    </Setting>
-    <Setting Name="MatricApiPort" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">50300</Value>
-    </Setting>
-    <Setting Name="AutostartMatricIntegration" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="MatricRetryInterval" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">30</Value>
+      <Value Profile="(Default)">8080</Value>
     </Setting>
   </Settings>
 </SettingsFile>

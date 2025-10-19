@@ -1,5 +1,7 @@
-﻿namespace EliteFIPServer {
-    static class Constants {
+﻿namespace EliteFIPServer
+{
+    static class Constants
+    {
         public const string GameStateFolder = @"\Saved Games\Frontier Developments\Elite Dangerous\";
         public const string OptionsFolder = @"\AppData\Local\Frontier Developments\Elite Dangerous\Options\";
         public const string EDProcessName = "EliteDangerous64";
