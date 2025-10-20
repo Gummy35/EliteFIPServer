@@ -170,7 +170,7 @@ label, input {
     animation: textShadow 1.6s infinite;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .crt-colorsep, #scans-table tbody td {
         animation: none !important;
         text-shadow: none !important;
