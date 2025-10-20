@@ -16,11 +16,22 @@ table.dataTable {
         font-size: 0.9em;
     }
 
+        table.dataTable tr.group td:nth-child(1),
+        table.dataTable th:nth-child(1) {
+            text-align: left;
+        }
+
     table.dataTable th {
         background-color: #ff4500;
         color: #fff;
         text-shadow: 0 0 5px rgba(0,0,0,0.5);
     }
+
+    table.dataTable tr.group {
+        background-color: #000000;
+        color: #fff;
+    }
+
 
     table.dataTable tr.low-distance {
         background-color: rgba(255, 165, 0, 0.2);
@@ -65,6 +76,115 @@ table.dataTable {
         cursor: pointer;
     }
 
-    .filter-container button:hover {
-        background-color: #e03e00;
+        .filter-container button:hover {
+            background-color: #e03e00;
+        }
+
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #000;
+    color: #fff;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #1b1b1b;
+    border-radius: 10px;
+}
+
+label, input {
+    font-size: 0.9em;
+    margin-right: 10px;
+}
+
+    input[type="number"] {
+        width: 80px;
     }
+
+#filters {
+    margin-bottom: 15px;
+}
+
+#scans-table {
+    width: 100% !important;
+}
+
+.crt-colorsep {
+    animation: textShadow 1.6s infinite;
+}
+
+@keyframes textShadow {
+    0% {
+        text-shadow: 0.5px 0 1px rgba(0,30,255,0.5), -0.5px 0 1px rgba(255,0,80,0.3), 0 0 3px;
+    }
+
+    25% {
+        text-shadow: 2px 0 1px rgba(0,30,255,0.5), -2px 0 1px rgba(255,0,80,0.3), 0 0 3px;
+    }
+
+    50% {
+        text-shadow: 0.1px 0 1px rgba(0,30,255,0.5), -0.1px 0 1px rgba(255,0,80,0.3), 0 0 3px;
+    }
+
+    75% {
+        text-shadow: 1.5px 0 1px rgba(0,30,255,0.5), -1.5px 0 1px rgba(255,0,80,0.3), 0 0 3px;
+    }
+
+    100% {
+        text-shadow: 2px 0 1px rgba(0,30,255,0.5), -2px 0 1px rgba(255,0,80,0.3), 0 0 3px;
+    }
+}
+
+.scanlines {
+    position: relative;
+    overflow: hidden;
+}
+
+    .scanlines:after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: repeating-linear-gradient( to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0.2) 1px, rgba(0,0,0,0) 2px );
+        pointer-events: none;
+        z-index: 5;
+        animation: scanlines 1s steps(60) infinite;
+    }
+
+@keyframes scanlines {
+    0% {
+        background-position: 0 0;
+    }
+
+    100% {
+        background-position: 0 4px;
+    }
+}
+
+#scans-table tbody td {
+    animation: textShadow 1.6s infinite;
+}
+
+@media (max-width: 768px) {
+    .crt-colorsep, #scans-table tbody td {
+        animation: none !important;
+        text-shadow: none !important;
+    }
+    .scanlines::after {
+        display: none !important;
+    }
+}
+
+/* Responsive : DataTables gère déjà une partie, mais on renforce */
+@media (max-width: 600px) {
+    table.dataTable th, table.dataTable td {
+        white-space: normal;
+        padding: 6px;
+    }
+}
+

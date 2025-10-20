@@ -12,10 +12,8 @@ namespace EliteFIPServer
         public static Position ReferencePosition = new();
         public DateTime Timestamp { get; set; }
         public string Event => "Exobiology";
-
         public string SystemName { get; set; }
         public Position Position { get; set; } = new();
-
         public double Distance
         {
             get

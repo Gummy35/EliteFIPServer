@@ -24,13 +24,13 @@ async function loadScans() {
 
                     allRows.push({
                         rowClass: `${distanceClass} ${valueClass}`,
-                        systemName: systemName,
+                        bodyName: systemName + " " + scan.BodyName + "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(" + (scan.BioSignalCount < 0 ? "Not scanned" : `${scan.BioSignalCount} signal${(scan.BioSignalCount > 1 ? "s" : "")}`) + ')',
+/*                        systemName: systemName,*/
                         distance: distance,
-                        bodyName: scan.BodyName,
                         scanName: scan.Name,
                         value: scan.Value.toLocaleString() + (scan.MaxValue == null ? "" : "<br/>- " + scan.MaxValue.toLocaleString()),
                         scandist: scan.Distance,
-                        seen: (scan.Seen == 0) ? "No" : "Yes",
+                        seen: (scan.Seen == 0) ? "" : "🏳️",
                         planetClass: scan.PlanetClass,
                         atmosphere: scan.AtmosphereType,
                         raw: scan
@@ -51,29 +51,62 @@ function applyFilters() {
     const minValue = parseFloat(document.getElementById('minValue').value) || 0;
 
     const filteredRows = allRows.filter(r => r.distance <= maxDistance && r.raw.Value >= minValue);
-
+    const groupColumn = 0;
     if (!dataTable) {
         dataTable = $('#scans-table').DataTable({
             data: filteredRows,
             createdRow: function (row, data) {
                 $(row).attr('class', data.rowClass);
             },
+            columnDefs: [{ visible: false, targets: 0 }, { visible: false, targets: 1 }],
+            
             columns: [
-                { data: "systemName", title: "System" },
-                { data: "distance", title: "Distance" },
                 { data: "bodyName", title: "Body" },
-                { data: "scanName", title: "Scan Name" },
-                { data: "value", title: "Value" },
-                { data: "scandist", title: "Scan Dist" },
-                { data: "seen", title: "Seen" },
-                { data: "planetClass", title: "Planet Class" },
-                { data: "atmosphere", title: "Atmosphere" }
+                /*{ data: "systemName", title: "System" },*/
+                { data: "distance", title: "Distance" },
+                { data: "scanName", title: "Planet / Species name" },
+                { data: "seen", title: "Distance / Seen" },
+                { data: "value", title: "Planet class / Value" },
+                { data: "scandist", title: "Atmosphere / Min dist" },
+                /*{ data: "planetClass", title: "Planet Class" },
+                { data: "atmosphere", title: "Atmosphere" }*/
             ],
             order: [[1, 'asc']],
             pageLength: 25,
             lengthMenu: [10, 25, 50, 100],
             autoWidth: false,
-            responsive: true
+            responsive: true,
+            drawCallback: function (settings) {
+                var api = this.api();
+                var rows = api.rows({ page: 'current' }).nodes();
+                var last = null;
+
+                api.column(groupColumn, { page: 'current' })
+                    .data()
+                    .each(function (group, i) {
+                        if (last !== group) {
+                            var rowData = api.row(rows[i]).data();
+
+                            // Par exemple, accéder à Distance (ou rowData.distance)
+                            var distance = rowData?.distance ?? '';
+                            var planetClass = rowData?.planetClass ?? '';
+                            var atmosphere = rowData?.atmosphere ?? '';
+
+                            $(rows)
+                                .eq(i)
+                                .before(
+                                    `<tr class="group">
+                                        <td><strong>${group}</strong></td>
+                                        <td>${distance} LY</td>
+                                        <td>${planetClass}</td>
+                                        <td>${atmosphere}</td>
+                                    </tr>`
+                                );
+
+                            last = group;
+                        }
+                    });
+            }
         });
     } else {
         dataTable.clear();

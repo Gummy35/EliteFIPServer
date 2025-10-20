@@ -38,6 +38,7 @@ namespace EliteFIPServer
                         BodyName = firstData.BodyName,
                         AtmosphereType = firstData.AtmosphereType,
                         PlanetClass = firstData.PlanetClass,
+                        BioSignalCount = firstData.BioSignalCount,
                         Scans = new ObservableCollection<ExoScan.ScanResultEntry>(kv.Value)
                     };
                     Bodies.Add(body);
